@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -25,7 +26,7 @@ type OrderState = {
   payment_method?: string;
 };
 
-export default function CheckoutPage() {
+function CheckoutContent() { 
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -464,5 +465,12 @@ export default function CheckoutPage() {
         </div>
       ) : null}
     </section>
+  );
+}
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div>Cargando checkout...</div>}>
+      <CheckoutContent />
+    </Suspense>
   );
 }

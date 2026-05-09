@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,7 +21,7 @@ type TableRow = {
   qr_token: string;
 };
 
-export default function MenuPage() {
+function MenuContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mesaParam = searchParams.get("mesa");
@@ -204,5 +205,12 @@ export default function MenuPage() {
         </section>
       ))}
     </section>
+  );
+}
+export default function MenuPage() {
+  return (
+    <Suspense fallback={<div>Cargando menú...</div>}>
+      <MenuContent />
+    </Suspense>
   );
 }
