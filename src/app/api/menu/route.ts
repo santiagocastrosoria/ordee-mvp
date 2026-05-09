@@ -45,8 +45,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(menuItems);
   }
 
-  const response: MenuItem[] = (data as MenuRow[]).map((row) => {
-    const category = row.category?.code ?? "principal";
+  const response: MenuItem[] = ((data ?? []) as unknown as MenuRow[]).map((row) => {
+    const category = Array.isArray(row.category)
+  ? row.category[0]?.code ?? "principal"
+  : row.category?.code ?? "principal";
     const fallbackImage = "/products/pizza.jpg";
     return {
       id: row.id,
