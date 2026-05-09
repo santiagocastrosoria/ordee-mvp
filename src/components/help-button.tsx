@@ -1,0 +1,48 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+
+export function HelpButton() {
+  const pathname = usePathname();
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  if (pathname === "/") return null;
+
+  const requestHelp = async () => {
+    setLoading(true);
+    const table = window.localStorage.getItem("ordee_table") ?? "sin_mesa";
+    console.info("[ORDEE soporte cliente] POST /api/soporte mesa=", table);
+
+    const response = await fetch("/api/soporte", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tableNumber: table })
+    });
+
+    const text = await response.text();
+    console.info("[ORDEE soporte cliente] respuesta status=", response.status, text.slice(0, 400));
+
+    setLoading(false);
+    if (!response.ok) {
+      console.error("[ORDEE soporte cliente] FALLA:", text);
+    }
+    setMessage(response.ok ? "Aviso enviado" : `No se pudo enviar (${response.status})`);
+    window.setTimeout(() => setMessage(""), 2500);
+  };
+
+  return (
+    <div className="fixed bottom-4 right-4 z-30 flex max-w-[80vw] flex-col items-end gap-2 md:bottom-6 md:right-6">
+      <button
+        type="button"
+        onClick={requestHelp}
+        disabled={loading}
+        className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/30 hover:bg-red-500 disabled:opacity-70"
+      >
+        {loading ? "Enviando..." : "Necesito ayuda"}
+      </button>
+      {message ? <span className="rounded bg-zinc-900/95 px-2 py-1 text-xs text-zinc-100">{message}</span> : null}
+    </div>
+  );
+}
