@@ -59,7 +59,7 @@ function CheckoutContent() {
     }
 
     setCustomerName(session.name);
-    setTableNumber(window.localStorage.getItem("ordee_table") ?? "1");
+    setTableNumber(session.tableNumber ?? window.localStorage.getItem("ordee_table") ?? "1");
     setItems(getCart());
   }, [router]);
 

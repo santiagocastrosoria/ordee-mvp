@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MenuCard } from "@/components/menu-card";
 import { addToCart, getCart } from "@/lib/cart-storage";
@@ -14,20 +14,10 @@ import { MenuCategory, MenuItem } from "@/lib/types";
 
 const categories: MenuCategory[] = ["entrada", "principal", "bebida", "postre"];
 
-type TableRow = {
-  id: string;
-  table_number: string;
-  status: string;
-  qr_token: string;
-};
-
 function MenuContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const mesaParam = searchParams.get("mesa");
   const [cartCount, setCartCount] = useState(0);
   const [items, setItems] = useState<MenuItem[]>(menuItems);
-  const [tables, setTables] = useState<TableRow[]>([]);
   const [activeCategory, setActiveCategory] = useState<MenuCategory>("entrada");
   const [name, setName] = useState("Cliente");
   const [tableNumber, setTableNumber] = useState("1");
@@ -46,33 +36,22 @@ function MenuContent() {
     }
 
     setName(session.name);
-    if (mesaParam) {
-      window.localStorage.setItem("ordee_table", mesaParam);
-    }
-
-    const savedTable = window.localStorage.getItem("ordee_table") ?? mesaParam ?? "1";
-    setTableNumber(savedTable);
+    const fixedTable = session.tableNumber;
+    setTableNumber(fixedTable);
+    window.localStorage.setItem("ordee_table", fixedTable);
 
     setCartCount(getCart().reduce((acc, entry) => acc + entry.quantity, 0));
 
     const slug = encodeURIComponent(getDefaultRestaurantSlug());
 
     const fetchData = async () => {
-      const [menuResponse, tableResponse] = await Promise.all([
-        fetch(`/api/menu?restaurant=${slug}`, { cache: "no-store" }),
-        fetch(`/api/tables?restaurant=${slug}`, { cache: "no-store" })
-      ]);
+      const menuResponse = await fetch(`/api/menu?restaurant=${slug}`, { cache: "no-store" });
 
       if (menuResponse.ok) {
         const menuData = (await menuResponse.json()) as MenuItem[];
         if (menuData.length > 0) {
           setItems(menuData);
         }
-      }
-
-      if (tableResponse.ok) {
-        const tableData = (await tableResponse.json()) as TableRow[];
-        setTables(tableData);
       }
     };
 
@@ -84,13 +63,12 @@ function MenuContent() {
     const channel = supabase
       .channel("ordee-mvp-menu-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, () => fetchData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "restaurant_tables" }, () => fetchData())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [mesaParam, router]);
+  }, [router]);
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -138,11 +116,6 @@ function MenuContent() {
     setCartCount(updated.reduce((acc, entry) => acc + entry.quantity, 0));
   };
 
-  const onSelectTable = (value: string) => {
-    setTableNumber(value);
-    window.localStorage.setItem("ordee_table", value);
-  };
-
   const goToCategory = (category: MenuCategory) => {
     sectionRefs.current[category]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -151,20 +124,13 @@ function MenuContent() {
     <section className="space-y-5 pb-10">
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">La parrilla de Don Jose</p>
-        <h1 className="text-3xl font-bold text-brand-gold md:text-4xl">Bienvenido/a {name}</h1>
+        <h1 className="text-3xl font-bold text-brand-gold md:text-4xl">Bienvenido {name}</h1>
       </header>
 
       <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-brand-card p-3">
-        <label className="text-sm text-zinc-300">
-          Mesa
-          <select value={tableNumber} onChange={(event) => onSelectTable(event.target.value)} className="ml-2 rounded bg-zinc-900 px-2 py-1">
-            {tables.map((table) => (
-              <option key={table.id} value={table.table_number}>
-                {table.table_number}
-              </option>
-            ))}
-          </select>
-        </label>
+        <p className="text-sm text-zinc-300">
+          Mesa <span className="font-semibold text-zinc-100">{tableNumber}</span>
+        </p>
         <Link href="/cart" className="rounded-lg border border-brand-gold px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold hover:text-black">
           Ver carrito ({cartCount})
         </Link>

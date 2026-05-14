@@ -20,7 +20,7 @@ export function TopNav() {
   useEffect(() => {
     const session = getSession();
     setName(session?.name ?? null);
-  }, []);
+  }, [pathname]);
 
   if (pathname === "/") return null;
 
@@ -54,7 +54,7 @@ export function TopNav() {
           </nav>
           {name ? (
             <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <span className="hidden max-w-[120px] truncate md:inline">Hola, {name}</span>
+              <span className="hidden max-w-[160px] truncate md:inline">Bienvenido {name}</span>
               <button type="button" onClick={signOut} className="rounded-full bg-zinc-800 px-2 py-1 text-zinc-200 hover:bg-zinc-700">
                 Salir
               </button>
