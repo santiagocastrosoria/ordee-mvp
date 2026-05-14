@@ -1,6 +1,7 @@
 "use client";
 
 import { formatArs } from "@/lib/format";
+import { productImageFallback, productImageSrc } from "@/lib/product-image";
 import { MenuItem } from "@/lib/types";
 
 interface MenuCardProps {
@@ -9,32 +10,42 @@ interface MenuCardProps {
 }
 
 export function MenuCard({ item, onAdd }: MenuCardProps) {
+  const src = productImageSrc(item);
+  const fallback = productImageFallback();
+
   return (
-    <article className="overflow-hidden rounded-2xl border border-zinc-800 bg-brand-card">
-      <div className="relative">
+    <article className="flex flex-col overflow-hidden rounded-lg border border-brand-border bg-brand-card shadow-brand-sm transition-shadow duration-tap ease-out hover:shadow-md">
+      <div className="relative h-[48px] w-full shrink-0 overflow-hidden bg-brand-soft sm:h-[54px] md:h-[60px]">
         <img
-          src={item.imageUrl}
+          src={src}
           alt={item.name}
-          className="h-40 w-full object-cover"
+          className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
           onError={(event) => {
-            event.currentTarget.src = "/products/pizza.jpg";
+            if (event.currentTarget.src.endsWith(fallback)) return;
+            event.currentTarget.src = fallback;
           }}
         />
-        {item.popular ? <span className="absolute left-3 top-3 rounded-full bg-brand-gold px-3 py-1 text-xs font-bold text-black">Popular</span> : null}
       </div>
-      <div className="p-4">
-      <h3 className="text-xl font-semibold">{item.name}</h3>
-      <p className="mt-1 text-sm text-zinc-400">{item.description}</p>
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-lg font-bold text-brand-gold">{formatArs(item.price)}</span>
-        <button
-          type="button"
-          onClick={() => onAdd(item)}
-          className="rounded-lg bg-brand-gold px-3 py-2 text-sm font-semibold text-black hover:brightness-110"
-        >
-          Agregar
-        </button>
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col px-1.5 pb-1.5 pt-1 sm:px-2 sm:pb-1.5 sm:pt-1.5">
+        {item.popular ? (
+          <span className="mb-0.5 inline-flex w-fit rounded-full border border-brand-border bg-brand-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-brand-ink">
+            Popular
+          </span>
+        ) : null}
+        <h3 className="line-clamp-2 text-[11px] font-semibold leading-tight tracking-tight text-brand-ink sm:text-xs">{item.name}</h3>
+        <p className="mt-0.5 line-clamp-1 text-[10px] leading-tight text-brand-muted sm:text-[11px]">{item.description}</p>
+        <div className="mt-auto flex items-end justify-between gap-1 pt-1">
+          <span className="min-w-0 shrink text-[11px] font-semibold tabular-nums text-brand-ink sm:text-xs">{formatArs(item.price)}</span>
+          <button
+            type="button"
+            onClick={() => onAdd(item)}
+            className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-accent px-2 text-[10px] font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-1 focus-visible:ring-offset-brand-card sm:h-7 sm:px-2.5 sm:text-[11px]"
+          >
+            Agregar
+          </button>
+        </div>
       </div>
     </article>
   );

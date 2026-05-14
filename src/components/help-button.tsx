@@ -42,7 +42,9 @@ export function HelpButton() {
       >
         {loading ? "Enviando..." : "Necesito ayuda"}
       </button>
-      {message ? <span className="rounded bg-zinc-900/95 px-2 py-1 text-xs text-zinc-100">{message}</span> : null}
+      {message ? (
+        <span className="rounded-lg border border-brand-border bg-brand-card px-2.5 py-1 text-xs font-medium text-brand-ink shadow-brand-sm">{message}</span>
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,9 @@ import { MenuCategory, MenuItem } from "@/lib/types";
 
 const categories: MenuCategory[] = ["entrada", "principal", "bebida", "postre"];
 
+/** Bajo el header sticky + barra de categorías (ajustar si cambia altura del nav). */
+const CATEGORY_SCROLL_ANCHOR_PX = 108;
+
 function MenuContent() {
   const router = useRouter();
   const [cartCount, setCartCount] = useState(0);
@@ -73,27 +76,24 @@ function MenuContent() {
   useEffect(() => {
     if (items.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-        const category = visible?.target.getAttribute("data-category") as MenuCategory | null;
-        if (category) setActiveCategory(category);
-      },
-      {
-        rootMargin: "-80px 0px -50% 0px",
-        threshold: [0.25, 0.5, 0.75]
+    const syncActiveFromScroll = () => {
+      let next: MenuCategory = "entrada";
+      for (const cat of categories) {
+        const el = sectionRefs.current[cat];
+        if (!el) continue;
+        const { top } = el.getBoundingClientRect();
+        if (top <= CATEGORY_SCROLL_ANCHOR_PX) next = cat;
       }
-    );
+      setActiveCategory((prev) => (prev === next ? prev : next));
+    };
 
-    categories.forEach((category) => {
-      const section = sectionRefs.current[category];
-      if (section) observer.observe(section);
-    });
-
-    return () => observer.disconnect();
+    syncActiveFromScroll();
+    window.addEventListener("scroll", syncActiveFromScroll, { passive: true });
+    window.addEventListener("resize", syncActiveFromScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", syncActiveFromScroll);
+      window.removeEventListener("resize", syncActiveFromScroll);
+    };
   }, [items]);
 
   const grouped = useMemo(() => {
@@ -117,34 +117,40 @@ function MenuContent() {
   };
 
   const goToCategory = (category: MenuCategory) => {
+    setActiveCategory(category);
     sectionRefs.current[category]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
-    <section className="space-y-5 pb-10">
-      <header className="space-y-1">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">La parrilla de Don Jose</p>
-        <h1 className="text-3xl font-bold text-brand-gold md:text-4xl">Bienvenido {name}</h1>
+    <section className="space-y-2.5 pb-8 sm:space-y-3 sm:pb-10">
+      <header className="space-y-0.5">
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted sm:text-xs">La parrilla de Don Jose</p>
+        <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl md:text-3xl">Bienvenido {name}</h1>
       </header>
 
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-brand-card p-3">
-        <p className="text-sm text-zinc-300">
-          Mesa <span className="font-semibold text-zinc-100">{tableNumber}</span>
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-brand-border bg-brand-card p-2 shadow-brand-sm sm:p-2.5">
+        <p className="text-xs text-brand-muted sm:text-sm">
+          Mesa <span className="font-semibold text-brand-ink">{tableNumber}</span>
         </p>
-        <Link href="/cart" className="rounded-lg border border-brand-gold px-4 py-2 text-sm text-brand-gold hover:bg-brand-gold hover:text-black">
+        <Link
+          href="/cart"
+          className="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-brand-border bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:min-h-[36px] sm:px-3 sm:text-sm"
+        >
           Ver carrito ({cartCount})
         </Link>
       </div>
 
-      <div className="sticky top-[58px] z-20 -mx-4 border-y border-zinc-800/80 bg-brand-bg/95 px-4 py-2 shadow-sm backdrop-blur md:top-[62px]">
-        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="sticky top-[52px] z-20 -mx-4 border-y border-brand-border bg-brand-bg/95 px-2 py-1 shadow-brand-sm backdrop-blur-md sm:top-[56px] sm:px-3 sm:py-1.5 md:top-[60px]">
+        <div className="flex gap-1 overflow-x-auto py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-1.5">
           {categories.map((category) => (
             <button
               key={category}
               type="button"
               onClick={() => goToCategory(category)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition-colors ${
-                activeCategory === category ? "bg-brand-gold text-black" : "bg-zinc-900 text-zinc-200"
+              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition duration-tap ease-out sm:px-3.5 sm:py-1.5 sm:text-sm ${
+                activeCategory === category
+                  ? "bg-brand-ink text-brand-accentFg shadow-sm ring-1 ring-brand-ink/10 active:scale-[0.98]"
+                  : "border border-transparent bg-brand-soft text-brand-muted hover:bg-brand-border/50 hover:text-brand-ink active:scale-[0.98]"
               }`}
             >
               {categoryLabels[category]}
@@ -160,10 +166,10 @@ function MenuContent() {
           ref={(el) => {
             sectionRefs.current[category] = el;
           }}
-          className="space-y-3 scroll-mt-32"
+          className="scroll-mt-24 space-y-1.5 sm:scroll-mt-28 sm:space-y-2"
         >
-          <h2 className="text-2xl font-semibold">{categoryLabels[category]}</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <h2 className="text-sm font-semibold tracking-tight text-brand-ink sm:text-base">{categoryLabels[category]}</h2>
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3 lg:grid-cols-4">
             {grouped[category].map((item) => (
               <MenuCard key={item.id} item={item} onAdd={handleAdd} />
             ))}
@@ -175,7 +181,7 @@ function MenuContent() {
 }
 export default function MenuPage() {
   return (
-    <Suspense fallback={<div>Cargando menú...</div>}>
+    <Suspense fallback={<div className="text-sm text-brand-muted">Cargando menú...</div>}>
       <MenuContent />
     </Suspense>
   );

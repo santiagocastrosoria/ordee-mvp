@@ -304,16 +304,18 @@ function CheckoutContent() {
 
   if (orderId) {
     return (
-      <section className="space-y-4 rounded-2xl border border-zinc-800 bg-brand-card p-6">
-        <h1 className="text-3xl font-bold text-brand-gold">Pedido confirmado</h1>
-        <p className="text-zinc-300">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
-        {selectedPayment === "transferencia" ? <p className="font-mono text-sm">Alias de pago: {transferAlias}</p> : null}
-        <p className="font-mono text-sm text-zinc-400">ID pedido: {orderId}</p>
-        <p className="text-sm text-zinc-300">Estado cocina: {orderState?.status ?? "cargando..."}</p>
-        <p className="text-sm text-zinc-300">Estado pago: {orderState?.payment_status ?? "cargando..."}</p>
+      <section className="space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-brand-sm sm:p-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">Pedido confirmado</h1>
+        <p className="text-sm leading-relaxed text-brand-muted">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
+        {selectedPayment === "transferencia" ? (
+          <p className="rounded-lg border border-brand-border bg-brand-soft px-3 py-2 font-mono text-sm text-brand-ink">Alias de pago: {transferAlias}</p>
+        ) : null}
+        <p className="font-mono text-xs text-brand-muted sm:text-sm">ID pedido: {orderId}</p>
+        <p className="text-sm text-brand-muted">Estado cocina: <span className="font-medium text-brand-ink">{orderState?.status ?? "cargando..."}</span></p>
+        <p className="text-sm text-brand-muted">Estado pago: <span className="font-medium text-brand-ink">{orderState?.payment_status ?? "cargando..."}</span></p>
         {orderState?.payment_method === "mercado_pago" && orderState?.payment_status !== "pagado" && mpPreferenceId && mercadoPagoPublicKey ? (
-          <div className="space-y-3 rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
-            <p className="text-sm text-zinc-300">Completa el pago con Mercado Pago:</p>
+          <div className="space-y-3 rounded-xl border border-brand-border bg-brand-soft p-4">
+            <p className="text-sm font-medium text-brand-ink">Completa el pago con Mercado Pago:</p>
             <MercadoPagoWalletBrick
               publicKey={mercadoPagoPublicKey}
               preferenceId={mpPreferenceId}
@@ -326,7 +328,7 @@ function CheckoutContent() {
                 href={mpCheckoutUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex rounded-lg border border-brand-gold px-3 py-2 text-xs text-brand-gold hover:bg-brand-gold hover:text-black"
+                className="inline-flex rounded-lg border border-brand-border bg-white px-3 py-2 text-xs font-medium text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.99]"
               >
                 Abrir checkout Mercado Pago en nueva pestaña
               </a>
@@ -334,12 +336,15 @@ function CheckoutContent() {
           </div>
         ) : null}
         {orderState?.payment_method === "mercado_pago" && orderState?.payment_status !== "pagado" && !mercadoPagoPublicKey ? (
-          <p className="rounded bg-red-950/60 p-2 text-xs text-red-200">
+          <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
             Falta `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`; no se puede renderizar Wallet Brick.
           </p>
         ) : null}
-        <div className="flex gap-3">
-          <Link href="/menu" className="rounded-lg bg-brand-gold px-4 py-2 text-sm font-semibold text-black">
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Link
+            href="/menu"
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
+          >
             Volver al menu
           </Link>
         </div>
@@ -348,39 +353,39 @@ function CheckoutContent() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-5 sm:space-y-6">
       <header>
-        <h1 className="text-3xl font-bold text-brand-gold">Checkout</h1>
-        <p className="text-zinc-400">Revisa el resumen y elige como pagar.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">Checkout</h1>
+        <p className="mt-1 text-sm text-brand-muted">Revisa el resumen y elige como pagar.</p>
       </header>
 
       {checkoutError ? (
-        <div className="rounded-xl border border-red-800 bg-red-950/60 p-4 text-sm">
-          <p className="font-semibold text-red-200">{checkoutError}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50/90 p-4 text-sm shadow-brand-sm">
+          <p className="font-semibold text-red-900">{checkoutError}</p>
           {checkoutErrorDetail ? (
-            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-red-100/90">
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-red-100 bg-white/80 p-2 font-mono text-xs text-red-900/90">
               {typeof checkoutErrorDetail === "string"
                 ? checkoutErrorDetail
                 : JSON.stringify(checkoutErrorDetail, null, 2)}
             </pre>
           ) : null}
-          <p className="mt-2 text-xs text-red-300/80">
+          <p className="mt-2 text-xs text-red-800/80">
             Logs en consola del navegador (F12). En servidor: mirá la terminal donde corre `npm run dev` líneas `[ORDEE api/orders POST]`.
           </p>
         </div>
       ) : null}
 
       {showOrderDebug ? (
-        <div className="rounded-xl border border-amber-700/70 bg-amber-950/30 p-4 text-sm">
-          <p className="font-semibold text-amber-200">Debug pedidos</p>
-          <p className="mt-1 text-amber-100/70">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm shadow-brand-sm">
+          <p className="font-semibold text-amber-900">Debug pedidos</p>
+          <p className="mt-1 text-amber-900/80">
             Probá insert sin carrito para aislar errores DB/realtime. En producción desactivalo (solo dev o NEXT_PUBLIC_ORDER_DEBUG=1).
           </p>
           <button
             type="button"
             onClick={createTestOrder}
             disabled={testOrderBusy}
-            className="mt-2 rounded-lg border border-amber-600 px-3 py-2 text-amber-100 hover:bg-amber-900/40 disabled:opacity-50"
+            className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-950 transition duration-tap ease-out hover:bg-amber-100 disabled:opacity-50"
           >
             {testOrderBusy ? "Creando…" : "Crear pedido test"}
           </button>
@@ -388,36 +393,36 @@ function CheckoutContent() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-3 rounded-xl border border-zinc-800 bg-brand-card p-4">
-          <label className="block text-sm">
+        <div className="space-y-1 rounded-xl border border-brand-border bg-brand-card p-4 shadow-brand-sm sm:space-y-2 sm:p-5">
+          <label className="block text-sm font-medium text-brand-ink">
             Nombre
-            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} className="mt-1 w-full rounded bg-zinc-900 px-3 py-2" />
+            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} className="ordee-input" />
           </label>
-          <label className="block text-sm">
+          <label className="block text-sm font-medium text-brand-ink">
             Mesa
-            <input value={tableNumber} onChange={(event) => setTableNumber(event.target.value)} className="mt-1 w-full rounded bg-zinc-900 px-3 py-2" />
+            <input value={tableNumber} onChange={(event) => setTableNumber(event.target.value)} className="ordee-input" inputMode="numeric" />
           </label>
-          <label className="block text-sm">
+          <label className="block text-sm font-medium text-brand-ink">
             Observaciones
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded bg-zinc-900 px-3 py-2" />
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="ordee-textarea" rows={3} />
           </label>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-brand-card p-4">
-          <h2 className="text-lg font-semibold">Resumen</h2>
-          <ul className="mt-3 space-y-2 text-sm text-zinc-300">
+        <div className="rounded-xl border border-brand-border bg-brand-card p-4 shadow-brand-sm sm:p-5">
+          <h2 className="text-base font-semibold text-brand-ink sm:text-lg">Resumen</h2>
+          <ul className="mt-3 space-y-2 border-b border-brand-border pb-3 text-sm">
             {items.map((entry) => (
-              <li key={entry.item.id} className="flex justify-between">
-                <span>
-                  {entry.quantity} x {entry.item.name}
+              <li key={entry.item.id} className="flex justify-between gap-3 text-brand-muted">
+                <span className="min-w-0 text-brand-ink">
+                  {entry.quantity} × {entry.item.name}
                 </span>
-                <span>{formatArs(entry.item.price * entry.quantity)}</span>
+                <span className="shrink-0 tabular-nums font-medium text-brand-ink">{formatArs(entry.item.price * entry.quantity)}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-4 border-t border-zinc-800 pt-3">
-            <p className="text-sm text-zinc-400">Total</p>
-            <p className="text-3xl font-bold text-brand-gold">{formatArs(total)}</p>
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-muted">Total</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-brand-ink sm:text-3xl">{formatArs(total)}</p>
           </div>
           <button
             type="button"
@@ -427,7 +432,7 @@ function CheckoutContent() {
               setOpenPaymentModal(true);
             }}
             disabled={loading || items.length === 0 || !customerName.trim()}
-            className="mt-4 w-full rounded-lg bg-brand-gold px-4 py-3 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
           >
             Confirmar Pedido y Pagar
           </button>
@@ -435,29 +440,49 @@ function CheckoutContent() {
       </div>
 
       {openPaymentModal ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-700 bg-zinc-950 p-5">
-            <h3 className="text-xl font-semibold text-brand-gold">Checkout</h3>
-            <p className="text-sm text-zinc-400">Monto final: {formatArs(total)}</p>
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-brand-ink/25 px-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-lg">
+            <h3 className="text-lg font-semibold text-brand-ink sm:text-xl">Elegir pago</h3>
+            <p className="text-sm text-brand-muted">Monto final: <span className="font-semibold tabular-nums text-brand-ink">{formatArs(total)}</span></p>
             <div className="space-y-2">
               {paymentOptions.map((option) => (
-                <label key={option.id} className="flex cursor-pointer items-center gap-2 rounded bg-zinc-900 px-3 py-2 text-sm">
-                  <input type="radio" checked={selectedPayment === option.id} onChange={() => setSelectedPayment(option.id)} />
+                <label
+                  key={option.id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition duration-tap ease-out ${
+                    selectedPayment === option.id
+                      ? "border-brand-ink bg-brand-ink text-brand-accentFg shadow-sm"
+                      : "border-brand-border bg-white text-brand-ink hover:border-brand-muted/40 hover:bg-brand-soft"
+                  }`}
+                >
+                  <input type="radio" className="h-4 w-4 accent-brand-ink" checked={selectedPayment === option.id} onChange={() => setSelectedPayment(option.id)} />
                   {option.label}
                 </label>
               ))}
             </div>
-            {selectedPayment === "transferencia" ? <p className="rounded bg-zinc-900 p-2 text-xs">Alias para pago: {transferAlias}</p> : null}
+            {selectedPayment === "transferencia" ? (
+              <p className="rounded-lg border border-brand-border bg-brand-soft p-2 text-xs text-brand-muted">
+                Alias para pago: <span className="font-mono font-medium text-brand-ink">{transferAlias}</span>
+              </p>
+            ) : null}
             {checkoutError ? (
-              <div className="rounded border border-red-800 bg-red-950/50 p-2 text-xs text-red-200">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-900">
                 {checkoutError}
               </div>
             ) : null}
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setOpenPaymentModal(false)} className="flex-1 rounded bg-zinc-800 px-3 py-2">
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setOpenPaymentModal(false)}
+                className="flex-1 rounded-lg border border-brand-border bg-white px-3 py-2.5 text-sm font-semibold text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.99]"
+              >
                 Cancelar
               </button>
-              <button type="button" onClick={createOrder} className="flex-1 rounded bg-brand-gold px-3 py-2 font-semibold text-black" disabled={loading}>
+              <button
+                type="button"
+                onClick={createOrder}
+                className="flex-1 rounded-lg bg-brand-accent px-3 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.99] disabled:opacity-45"
+                disabled={loading}
+              >
                 {loading ? "Procesando..." : "Confirmar"}
               </button>
             </div>
@@ -469,7 +494,7 @@ function CheckoutContent() {
 }
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={<div>Cargando checkout...</div>}>
+    <Suspense fallback={<div className="text-sm text-brand-muted">Cargando checkout...</div>}>
       <CheckoutContent />
     </Suspense>
   );
