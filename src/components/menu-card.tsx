@@ -12,9 +12,14 @@ interface MenuCardProps {
 export function MenuCard({ item, onAdd }: MenuCardProps) {
   const src = productImageSrc(item);
   const fallback = productImageFallback();
+  const soldOut = item.available === false;
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-lg border border-brand-border bg-brand-card shadow-brand-sm transition-shadow duration-tap ease-out hover:shadow-md">
+    <article
+      className={`flex flex-col overflow-hidden rounded-lg border border-brand-border bg-brand-card shadow-brand-sm transition-shadow duration-tap ease-out ${
+        soldOut ? "opacity-60" : "hover:shadow-md"
+      }`}
+    >
       <div className="relative h-[48px] w-full shrink-0 overflow-hidden bg-brand-soft sm:h-[54px] md:h-[60px]">
         <img
           src={src}
@@ -29,7 +34,11 @@ export function MenuCard({ item, onAdd }: MenuCardProps) {
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col px-1.5 pb-1.5 pt-1 sm:px-2 sm:pb-1.5 sm:pt-1.5">
-        {item.popular ? (
+        {soldOut ? (
+          <span className="mb-0.5 inline-flex w-fit rounded-full border border-brand-border bg-brand-ink px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-brand-accentFg">
+            Agotado
+          </span>
+        ) : item.popular ? (
           <span className="mb-0.5 inline-flex w-fit rounded-full border border-brand-border bg-brand-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-brand-ink">
             Popular
           </span>
@@ -40,8 +49,9 @@ export function MenuCard({ item, onAdd }: MenuCardProps) {
           <span className="min-w-0 shrink text-[11px] font-semibold tabular-nums text-brand-ink sm:text-xs">{formatArs(item.price)}</span>
           <button
             type="button"
-            onClick={() => onAdd(item)}
-            className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-accent px-2 text-[10px] font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-1 focus-visible:ring-offset-brand-card sm:h-7 sm:px-2.5 sm:text-[11px]"
+            disabled={soldOut}
+            onClick={() => !soldOut && onAdd(item)}
+            className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-brand-accent px-2 text-[10px] font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-1 focus-visible:ring-offset-brand-card disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 sm:h-7 sm:px-2.5 sm:text-[11px]"
           >
             Agregar
           </button>

@@ -10,6 +10,7 @@ type MenuRow = {
   description: string | null;
   price_ars: number;
   image_url: string | null;
+  is_active?: boolean;
   category: {
     code: MenuCategory;
   } | null;
@@ -36,9 +37,8 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("menu_items")
-    .select("id, name, description, price_ars, image_url, category:menu_categories(code)")
+    .select("id, name, description, price_ars, image_url, is_active, category:menu_categories(code)")
     .eq("restaurant_id", restaurant.id)
-    .eq("is_active", true)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -56,7 +56,8 @@ export async function GET(request: NextRequest) {
       name: row.name,
       description: row.description ?? "",
       price: row.price_ars,
-      imageUrl: row.image_url ?? fallbackImage
+      imageUrl: row.image_url ?? fallbackImage,
+      available: row.is_active !== false
     };
   });
 

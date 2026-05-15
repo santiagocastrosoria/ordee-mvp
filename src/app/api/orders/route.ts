@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     customer_name: body.customerName.trim(),
     table_number: normalizedTable,
     notes: body.notes?.trim() || null,
-    status: "nuevo" as const,
+    status: body.paymentMethod === "mercado_pago" ? "nuevo" : "preparando",
     payment_status: "pendiente" as const,
     payment_method: body.paymentMethod,
     total_ars: total

@@ -12,11 +12,13 @@ import { getSession } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CartItem, PaymentMethod } from "@/lib/types";
 
-const paymentOptions: Array<{ id: PaymentMethod; label: string }> = [
-  { id: "mercado_pago", label: "Mercado Pago" },
-  { id: "transferencia", label: "Transferencia" },
-  { id: "naranja_x", label: "Naranja X" },
-  { id: "modo", label: "Modo" }
+const paymentOptions: Array<{ id: PaymentMethod; label: string; description?: string }> = [
+  { id: "efectivo", label: "Efectivo", description: "Pagás en caja al retirar. El pedido va directo a cocina." },
+  {
+    id: "mercado_pago",
+    label: "Tarjeta o billetera virtual",
+    description: "Mercado Pago. Cocina recibe el pedido cuando el pago se aprueba."
+  }
 ];
 
 type OrderState = {
@@ -24,6 +26,7 @@ type OrderState = {
   status: string;
   payment_status: string;
   payment_method?: string;
+  table_number?: string | null;
 };
 
 function CheckoutContent() { 
@@ -38,7 +41,7 @@ function CheckoutContent() {
   const [orderId, setOrderId] = useState<string | null>(searchParams.get("orderId"));
   const [orderState, setOrderState] = useState<OrderState | null>(null);
   const [openPaymentModal, setOpenPaymentModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("mercado_pago");
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("efectivo");
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutErrorDetail, setCheckoutErrorDetail] = useState<unknown>(null);
   const [testOrderBusy, setTestOrderBusy] = useState(false);
@@ -48,7 +51,6 @@ function CheckoutContent() {
   const showOrderDebug =
     process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_ORDER_DEBUG === "1";
 
-  const transferAlias = process.env.NEXT_PUBLIC_TRANSFER_ALIAS ?? "santi.castro.ap";
   const mercadoPagoPublicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? "";
 
   useEffect(() => {
@@ -271,6 +273,12 @@ function CheckoutContent() {
       console.info("[ORDEE checkout] pago manual confirm OK");
     }
 
+    if (selectedPayment === "efectivo") {
+      window.alert(
+        `Cobrar en efectivo — Mesa ${(tableNumber || "").trim() || "—"}\n\nEl pedido ya está en cocina. Mostrá este aviso en caja al pagar.`
+      );
+    }
+
     clearCart();
     setOrderId(orderData.orderId);
     setLoading(false);
@@ -307,8 +315,10 @@ function CheckoutContent() {
       <section className="space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-brand-sm sm:p-6">
         <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">Pedido confirmado</h1>
         <p className="text-sm leading-relaxed text-brand-muted">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
-        {selectedPayment === "transferencia" ? (
-          <p className="rounded-lg border border-brand-border bg-brand-soft px-3 py-2 font-mono text-sm text-brand-ink">Alias de pago: {transferAlias}</p>
+        {orderState?.payment_method === "efectivo" ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+            Cobrar en efectivo · Mesa {orderState.table_number ?? "—"}
+          </p>
         ) : null}
         <p className="font-mono text-xs text-brand-muted sm:text-sm">ID pedido: {orderId}</p>
         <p className="text-sm text-brand-muted">Estado cocina: <span className="font-medium text-brand-ink">{orderState?.status ?? "cargando..."}</span></p>
@@ -448,22 +458,33 @@ function CheckoutContent() {
               {paymentOptions.map((option) => (
                 <label
                   key={option.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition duration-tap ease-out ${
+                  className={`flex cursor-pointer items-stretch gap-3 rounded-xl border px-3 py-2.5 text-sm transition duration-tap ease-out ${
                     selectedPayment === option.id
                       ? "border-brand-ink bg-brand-ink text-brand-accentFg shadow-sm"
                       : "border-brand-border bg-white text-brand-ink hover:border-brand-muted/40 hover:bg-brand-soft"
                   }`}
                 >
-                  <input type="radio" className="h-4 w-4 accent-brand-ink" checked={selectedPayment === option.id} onChange={() => setSelectedPayment(option.id)} />
-                  {option.label}
+                  <input
+                    type="radio"
+                    className="mt-1 h-4 w-4 shrink-0 accent-brand-ink"
+                    checked={selectedPayment === option.id}
+                    onChange={() => setSelectedPayment(option.id)}
+                  />
+                  <span>
+                    <span className="block font-semibold">{option.label}</span>
+                    {option.description ? (
+                      <span
+                        className={`mt-1 block text-xs font-normal leading-snug ${
+                          selectedPayment === option.id ? "text-brand-accentFg/85" : "text-brand-muted"
+                        }`}
+                      >
+                        {option.description}
+                      </span>
+                    ) : null}
+                  </span>
                 </label>
               ))}
             </div>
-            {selectedPayment === "transferencia" ? (
-              <p className="rounded-lg border border-brand-border bg-brand-soft p-2 text-xs text-brand-muted">
-                Alias para pago: <span className="font-mono font-medium text-brand-ink">{transferAlias}</span>
-              </p>
-            ) : null}
             {checkoutError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-900">
                 {checkoutError}

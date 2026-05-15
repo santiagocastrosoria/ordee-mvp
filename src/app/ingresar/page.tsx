@@ -34,32 +34,27 @@ export default function IngresarClientePage() {
   };
 
   return (
-    <section className="mx-auto max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-brand-card p-6">
-      <h1 className="text-2xl font-bold text-brand-gold">Mi cuenta (cliente)</h1>
-      <p className="text-sm text-zinc-400">Ingresa para probar la app como comensal. El menu sigue siendo publico.</p>
-      <label className="block text-sm">
+    <section className="mx-auto max-w-md space-y-4 rounded-2xl border border-brand-border bg-brand-card p-6 shadow-brand-sm">
+      <h1 className="text-2xl font-semibold tracking-tight text-brand-ink">Mi cuenta (cliente)</h1>
+      <p className="text-sm text-brand-muted">Ingresa para probar la app como comensal. El menu sigue siendo publico.</p>
+      <label className="block text-sm font-medium text-brand-ink">
         Email
-        <input value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded bg-zinc-900 px-3 py-2" />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} className="ordee-input" type="email" autoComplete="email" />
       </label>
-      <label className="block text-sm">
+      <label className="block text-sm font-medium text-brand-ink">
         Contrasena
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded bg-zinc-900 px-3 py-2"
-        />
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="ordee-input" autoComplete="current-password" />
       </label>
       <button
         type="button"
         onClick={signIn}
         disabled={loading || !email || !password}
-        className="w-full rounded-lg bg-brand-gold px-4 py-2 font-semibold text-black disabled:opacity-50"
+        className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 disabled:opacity-45"
       >
         {loading ? "Ingresando..." : "Ingresar"}
       </button>
-      {message ? <p className="text-sm text-zinc-300">{message}</p> : null}
-      <Link href="/menu" className="block text-center text-sm text-brand-gold">
+      {message ? <p className="text-sm text-brand-muted">{message}</p> : null}
+      <Link href="/menu" className="block text-center text-sm font-medium text-brand-ink underline-offset-4 hover:underline">
         Volver al menu
       </Link>
     </section>

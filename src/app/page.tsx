@@ -43,24 +43,26 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="mx-auto max-w-md rounded-2xl border border-zinc-800 bg-brand-card p-6">
-      <h1 className="text-3xl font-bold text-brand-gold">ORDEE</h1>
-      <p className="mt-2 text-sm text-zinc-400">Ingresa tu nombre y mesa.</p>
-      <form className="mt-6 space-y-3" onSubmit={onSubmit}>
-        <label className="block text-sm">
+    <section className="mx-auto max-w-md rounded-2xl border border-brand-border bg-brand-card p-6 shadow-brand-sm">
+      <h1 className="text-3xl font-semibold tracking-tight text-brand-ink">ORDEE</h1>
+      <p className="mt-2 text-sm text-brand-muted">Ingresa tu nombre y mesa.</p>
+      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+        <label className="block text-sm font-medium text-brand-ink">
           Nombre
           <input
-            className="mt-1 w-full rounded bg-zinc-900 px-3 py-2"
+            className="ordee-input"
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Tu nombre"
+            autoComplete="name"
           />
         </label>
-        <label className="block text-sm">
+        <label className="block text-sm font-medium text-brand-ink">
           Mesa
           <select
-            className="mt-1 w-full rounded bg-zinc-900 px-3 py-2"
+            className="ordee-input cursor-pointer appearance-none bg-[length:1rem_1rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2371717a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")` }}
             value={tableNumber}
             onChange={(event) => setTableNumber(event.target.value)}
           >
@@ -72,8 +74,11 @@ export default function LoginPage() {
             ))}
           </select>
         </label>
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        <button type="submit" className="w-full rounded-lg bg-brand-gold px-4 py-2 font-semibold text-black">
+        {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+        <button
+          type="submit"
+          className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
+        >
           Ingresar
         </button>
       </form>

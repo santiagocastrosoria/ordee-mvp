@@ -20,6 +20,9 @@ export function saveCart(items: CartItem[]): void {
 }
 
 export function addToCart(item: MenuItem): CartItem[] {
+  if (item.available === false) {
+    return getCart();
+  }
   const cart = getCart();
   const existing = cart.find((entry) => entry.item.id === item.id);
 

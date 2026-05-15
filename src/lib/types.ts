@@ -9,6 +9,8 @@ export interface MenuItem {
   imageUrl: string;
   emoji?: string;
   popular?: boolean;
+  /** false = agotado (is_active en DB); por defecto disponible */
+  available?: boolean;
 }
 
 export interface CartItem {
@@ -17,7 +19,7 @@ export interface CartItem {
 }
 
 export type OrderStatus = "nuevo" | "preparando" | "listo" | "entregado" | "cancelado";
-export type PaymentMethod = "mercado_pago" | "transferencia" | "naranja_x" | "modo" | "otro";
+export type PaymentMethod = "mercado_pago" | "transferencia" | "naranja_x" | "modo" | "otro" | "efectivo";
 export type PaymentStatus = "pendiente" | "pagado" | "fallido";
 
 export interface Order {

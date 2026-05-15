@@ -102,12 +102,13 @@ export async function POST(request: NextRequest) {
     })
     .eq("order_id", externalReference);
 
-  await supabase.from("orders").update({ payment_status: mapPaymentStatus(paymentData.status) }).eq("id", externalReference);
-  console.info(TAG, "pedido actualizado", {
-    orderId: externalReference,
-    paymentStatus: mapPaymentStatus(paymentData.status),
-    paymentRowStatus: paymentRowStatus(paymentData.status)
-  });
+  const paymentStatus = mapPaymentStatus(paymentData.status);
+  const orderPatch: { payment_status: typeof paymentStatus; status?: "preparando" } = { payment_status: paymentStatus };
+  if (paymentStatus === "pagado") {
+    orderPatch.status = "preparando";
+  }
+
+  await supabase.from("orders").update(orderPatch).eq("id", externalReference);
 
   return NextResponse.json({ ok: true });
 }
