@@ -76,6 +76,9 @@ export async function fulfillMercadoPagoByPaymentId(
       })
       .eq("id", ref);
 
+    if (session.notes) {
+      console.info(TAG, "[order notes persisted]", { orderId: result.orderId, notes: session.notes });
+    }
     console.info(TAG, "[MP order created] orderId=", result.orderId, "sessionId=", ref);
     return { ok: true, orderId: result.orderId };
   }

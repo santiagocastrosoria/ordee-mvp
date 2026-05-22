@@ -177,6 +177,10 @@ function CheckoutContent() {
       items
     };
 
+    if (notes.trim()) {
+      console.info("[checkout notes]", { notes: notes.trim(), table: tableNumber, customer: customerName });
+    }
+
     if (selectedPayment === "mercado_pago") {
       console.info("[ORDEE checkout] Checkout Pro → create-preference");
       let prefResponse: Response;
@@ -295,36 +299,86 @@ function CheckoutContent() {
     setTestOrderBusy(false);
   };
 
-  if (orderId) {
+  if (mpWaiting) {
     return (
-      <section className="space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-brand-sm sm:p-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">Pedido confirmado</h1>
-        <p className="text-sm leading-relaxed text-brand-muted">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
-        {orderState?.payment_method === "efectivo" ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
-            Cobrar en efectivo · Mesa {orderState.table_number ?? "—"}
-          </p>
-        ) : null}
-        <p className="font-mono text-xs text-brand-muted sm:text-sm">ID pedido: {orderId}</p>
-        <p className="text-sm text-brand-muted">Estado cocina: <span className="font-medium text-brand-ink">{orderState?.status ?? "cargando..."}</span></p>
-        <p className="text-sm text-brand-muted">Estado pago: <span className="font-medium text-brand-ink">{orderState?.payment_status ?? "cargando..."}</span></p>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Link
-            href="/menu"
-            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
-          >
-            Volver al menu
-          </Link>
+      <section className="flex min-h-[50vh] flex-col items-center justify-center gap-5 rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-brand-border">
+          <svg className="h-7 w-7 animate-spin text-brand-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-brand-ink">Confirmando tu pago…</p>
+          <p className="mt-1 text-sm text-brand-muted">Esperá unos segundos. Mercado Pago está procesando el cobro.</p>
         </div>
       </section>
     );
   }
 
-  if (mpWaiting) {
+  if (orderId) {
+    const isApprovedMp = orderState?.payment_method === "mercado_pago" && orderState?.payment_status === "pagado";
+    const isCash = orderState?.payment_method === "efectivo";
+    const stillLoading = !orderState;
+
+    if (isApprovedMp) {
+      console.info("[payment approved]", { orderId, paymentMethod: orderState.payment_method });
+      return (
+        <section className="flex flex-col items-center gap-6 rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm sm:p-10">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-4 ring-emerald-100">
+            <svg className="h-8 w-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">PAGO CONFIRMADO</h1>
+            <p className="text-sm text-brand-muted">Su pedido ya está en preparación</p>
+          </div>
+          <div className="w-full rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-sm">
+            <p className="text-brand-muted">Mesa <span className="font-semibold text-brand-ink">{orderState.table_number ?? "—"}</span></p>
+            <p className="mt-1 font-mono text-xs text-brand-muted">#{orderId.slice(0, 8).toUpperCase()}</p>
+          </div>
+          <Link
+            href="/menu"
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98]"
+          >
+            Volver al menú
+          </Link>
+        </section>
+      );
+    }
+
     return (
-      <section className="rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm">
-        <p className="text-lg font-semibold text-brand-ink">Confirmando tu pago…</p>
-        <p className="mt-2 text-sm text-brand-muted">Esperá unos segundos. Cuando Mercado Pago apruebe el cobro, el pedido irá a cocina.</p>
+      <section className="space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-brand-sm sm:p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft">
+            <svg className="h-5 w-5 text-brand-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl">Pedido recibido</h1>
+        </div>
+        <p className="text-sm leading-relaxed text-brand-muted">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
+        {isCash ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+            Cobrar en efectivo · Mesa {orderState.table_number ?? "—"}
+          </p>
+        ) : null}
+        <p className="font-mono text-xs text-brand-muted sm:text-sm">ID: {orderId.slice(0, 8).toUpperCase()}</p>
+        {!stillLoading ? (
+          <p className="text-sm text-brand-muted">
+            Estado: <span className="font-medium text-brand-ink">{orderState.status}</span>
+          </p>
+        ) : (
+          <p className="text-sm text-brand-muted">Cargando estado…</p>
+        )}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Link
+            href="/menu"
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
+          >
+            Volver al menú
+          </Link>
+        </div>
       </section>
     );
   }

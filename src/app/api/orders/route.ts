@@ -61,14 +61,19 @@ export async function POST(request: NextRequest) {
     notes: body.notes,
     items: body.items,
     paymentMethod: body.paymentMethod,
-    paymentStatus: "pagado"
+    paymentStatus: "pendiente"
   });
+
+  console.info(LOG, "[cash payment pending]", result.ok ? result.orderId : result.error);
 
   if (!result.ok) {
     console.error(LOG, "fallo", result);
     return NextResponse.json({ error: result.error, step: result.step, detail: result.detail }, { status: 500 });
   }
 
+  if (body.notes?.trim()) {
+    console.info(LOG, "[order notes persisted]", { orderId: result.orderId, notes: body.notes.trim() });
+  }
   console.info(LOG, "pedido OK", result.orderId);
   return NextResponse.json({ orderId: result.orderId, paymentId: result.paymentId, total: result.total });
 }
