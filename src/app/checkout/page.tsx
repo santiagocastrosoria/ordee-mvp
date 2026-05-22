@@ -113,7 +113,7 @@ function CheckoutContent() {
     }
   }, [orderState]);
 
-  // ── MercadoPago: poll session until order is created ─────────────────────
+  // ── MercadoPago: poll + realtime on session until order is created ────────
   useEffect(() => {
     if (!mpSessionId || mpResult !== "success") return;
 
@@ -122,10 +122,30 @@ function CheckoutContent() {
     setCheckoutError(null);
     console.info("[payment pending]", { sessionId: mpSessionId });
 
+    let done = false; // shared flag to stop both poll and realtime once resolved
+
+    /** Transition to success state. Called by poll OR realtime — whichever fires first. */
+    const handleApproved = (resolvedOrderId: string, via: string) => {
+      if (done) return; // already resolved
+      done = true;
+      clearCart();
+      console.info("[cart reset success]", { orderId: resolvedOrderId, via });
+      console.info("[payment approved detected]", { orderId: resolvedOrderId, via });
+      setOrderId(resolvedOrderId);
+      setMpApproved(true);
+      setMpWaiting(false);
+      try {
+        window.history.replaceState({}, "", `/checkout?orderId=${resolvedOrderId}`);
+      } catch { /* cosmetic only */ }
+      console.info("[checkout ui updated]", { state: "payment_confirmed", via });
+    };
+
+    // ── Polling fallback (works without realtime) ─────────────────────────
     let attempts = 0;
     const maxAttempts = 40; // 40 × 2 s = 80 s max
 
     const poll = async () => {
+      if (done) return;
       attempts += 1;
 
       try {
@@ -135,33 +155,15 @@ function CheckoutContent() {
           const data = (await res.json()) as { status: string; orderId: string | null };
 
           if (data.orderId) {
-            // ── Payment approved ─────────────────────────────────────────
-            clearCart();
-            console.info("[cart reset success]", { orderId: data.orderId });
-            console.info("[payment approved detected]", { orderId: data.orderId, via: "session_poll" });
-
-            // Set state FIRST — before any navigation — to guarantee the UI
-            // transitions immediately in the current render cycle.
-            setOrderId(data.orderId);
-            setMpApproved(true);
-            setMpWaiting(false);
-
-            // Silently update the URL without triggering a React/Next.js navigation.
-            // This avoids the race condition where router.replace() causes a re-render
-            // that resets state before the batched updates above are committed.
-            try {
-              window.history.replaceState({}, "", `/checkout?orderId=${data.orderId}`);
-            } catch {
-              // ignore — URL update is cosmetic only
-            }
-
-            console.info("[checkout ui updated]", { state: "payment_confirmed" });
+            handleApproved(data.orderId, "session_poll");
             return;
           }
 
           if (data.status === "failed") {
-            setCheckoutError("El pago no se completó. Podés intentar de nuevo.");
-            setMpWaiting(false);
+            if (!done) {
+              setCheckoutError("El pago no se completó. Podés intentar de nuevo.");
+              setMpWaiting(false);
+            }
             return;
           }
         }
@@ -170,19 +172,60 @@ function CheckoutContent() {
         // Network error — always retry
       }
 
-      if (attempts < maxAttempts) {
-        window.setTimeout(poll, 2000);
-      } else {
-        setCheckoutError("El pago está en proceso. Si Mercado Pago aprobó el cobro, el pedido ya llegó a cocina.");
-        setMpWaiting(false);
+      if (!done) {
+        if (attempts < maxAttempts) {
+          window.setTimeout(poll, 2000);
+        } else {
+          setCheckoutError("El pago está en proceso. Si Mercado Pago aprobó el cobro, el pedido ya llegó a cocina.");
+          setMpWaiting(false);
+        }
       }
     };
 
     poll();
+
+    // ── Supabase realtime subscription on mp_checkout_sessions ───────────
+    // Fires INSTANTLY when the webhook updates order_id (no polling delay).
+    // Requires: supabase/013_mp_sessions_patch.sql to have been run in Supabase.
+    const supabase = createSupabaseBrowserClient();
+    type SupabaseChannel = ReturnType<NonNullable<typeof supabase>["channel"]>;
+    let channel: SupabaseChannel | null = null;
+
+    if (supabase) {
+      channel = supabase
+        .channel(`ordee-mp-session-${mpSessionId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "mp_checkout_sessions",
+            filter: `id=eq.${mpSessionId}`
+          },
+          (payload) => {
+            const row = payload.new as { order_id?: string | null; status?: string };
+            console.info("[payment approved detected]", { via: "realtime_session", row });
+            if (row.order_id) {
+              handleApproved(row.order_id, "realtime_session");
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.info("[ORDEE checkout realtime] SUBSCRIBED mp_checkout_sessions id=", mpSessionId);
+          }
+          if (status === "CHANNEL_ERROR") {
+            console.warn("[ORDEE checkout realtime] mp_checkout_sessions CHANNEL_ERROR — polling covers fallback");
+          }
+        });
+    }
+
     return () => {
-      attempts = maxAttempts; // stop pending setTimeout on unmount
+      done = true; // stop pending setTimeout
+      attempts = maxAttempts;
+      if (supabase && channel) supabase.removeChannel(channel);
     };
-  }, [mpSessionId, mpResult]); // intentionally omit router — we no longer use it here
+  }, [mpSessionId, mpResult]); // intentionally omit router — no longer used here
 
   // ── Payment cancelled / rejected ─────────────────────────────────────────
   useEffect(() => {
