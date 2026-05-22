@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { requiredEnv } from "@/lib/env";
 
 interface Body {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     console.error(TAG, "falta token", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppBaseUrl();
 
   const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
         }
       ],
       external_reference: body.orderId,
-      notification_url: `${appUrl}/api/payments/mercadopago/webhook`,
+      notification_url: `${appUrl}/api/mercadopago/webhook`,
       back_urls: {
         success: `${appUrl}/checkout?status=success&orderId=${body.orderId}`,
         failure: `${appUrl}/checkout?status=failure&orderId=${body.orderId}`,

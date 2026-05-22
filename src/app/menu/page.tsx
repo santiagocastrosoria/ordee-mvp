@@ -124,7 +124,7 @@ function MenuContent() {
   return (
     <section className="space-y-2.5 pb-8 sm:space-y-3 sm:pb-10">
       <header className="space-y-0.5">
-        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted sm:text-xs">La parrilla de Don Jose</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted sm:text-xs">Restaurante</p>
         <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl md:text-3xl">Bienvenido {name}</h1>
       </header>
 

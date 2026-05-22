@@ -36,6 +36,12 @@ export function addToCart(item: MenuItem): CartItem[] {
   return cart;
 }
 
+export function removeFromCart(itemId: string): CartItem[] {
+  const updated = getCart().filter((entry) => entry.item.id !== itemId);
+  saveCart(updated);
+  return updated;
+}
+
 export function updateItemQuantity(itemId: string, quantity: number): CartItem[] {
   const cart = getCart();
   const updated = cart

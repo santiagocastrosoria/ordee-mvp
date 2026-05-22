@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { MercadoPagoWalletBrick } from "@/components/mercadopago-wallet-brick";
 import { cartTotal, clearCart, getCart } from "@/lib/cart-storage";
 import { formatArs } from "@/lib/format";
 import { getDefaultRestaurantSlug } from "@/lib/restaurant-demo";
@@ -45,13 +44,13 @@ function CheckoutContent() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutErrorDetail, setCheckoutErrorDetail] = useState<unknown>(null);
   const [testOrderBusy, setTestOrderBusy] = useState(false);
-  const [mpPreferenceId, setMpPreferenceId] = useState<string | null>(null);
-  const [mpCheckoutUrl, setMpCheckoutUrl] = useState<string | null>(null);
+  const [mpWaiting, setMpWaiting] = useState(false);
   /** Botón temporal de prueba: dev siempre o con NEXT_PUBLIC_ORDER_DEBUG=1 */
   const showOrderDebug =
     process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_ORDER_DEBUG === "1";
 
-  const mercadoPagoPublicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? "";
+  const mpResult = searchParams.get("mp");
+  const mpSessionId = searchParams.get("sessionId");
 
   useEffect(() => {
     const session = getSession();
@@ -111,97 +110,90 @@ function CheckoutContent() {
     }
   }, [orderState]);
 
+  useEffect(() => {
+    if (!mpSessionId || mpResult !== "success") return;
+
+    setMpWaiting(true);
+    setCheckoutError(null);
+
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    const poll = async () => {
+      attempts += 1;
+      const res = await fetch(`/api/mercadopago/session/${mpSessionId}`, { cache: "no-store" });
+      if (!res.ok) {
+        if (attempts >= maxAttempts) {
+          setCheckoutError("No pudimos confirmar el pago. Si ya pagaste, el pedido puede aparecer en cocina en unos segundos.");
+          setMpWaiting(false);
+        }
+        return;
+      }
+      const data = (await res.json()) as { status: string; orderId: string | null };
+      if (data.orderId) {
+        clearCart();
+        setOrderId(data.orderId);
+        setMpWaiting(false);
+        router.replace(`/checkout?orderId=${data.orderId}`);
+        return;
+      }
+      if (data.status === "failed") {
+        setCheckoutError("El pago no se completó. Intentá de nuevo.");
+        setMpWaiting(false);
+        return;
+      }
+      if (attempts < maxAttempts) {
+        window.setTimeout(poll, 2000);
+      } else {
+        setCheckoutError("Pago en proceso. Si Mercado Pago aprobó el cobro, el pedido llegará a cocina automáticamente.");
+        setMpWaiting(false);
+      }
+    };
+
+    poll();
+    return () => {
+      attempts = maxAttempts;
+    };
+  }, [mpSessionId, mpResult, router]);
+
+  useEffect(() => {
+    if (mpResult === "failure" && mpSessionId) {
+      setCheckoutError("El pago fue cancelado o rechazado. Podés intentar de nuevo.");
+    }
+  }, [mpResult, mpSessionId]);
+
   const total = useMemo(() => cartTotal(items), [items]);
 
   const createOrder = async () => {
     setLoading(true);
     setCheckoutError(null);
     setCheckoutErrorDetail(null);
-    setMpPreferenceId(null);
-    setMpCheckoutUrl(null);
 
-    const payload = {
+    const basePayload = {
       restaurantSlug: getDefaultRestaurantSlug(),
       customerName,
       tableNumber,
       notes,
-      items,
-      paymentMethod: selectedPayment
+      items
     };
 
-    console.info("[ORDEE checkout] Confirmar Pedido → POST /api/orders", {
-      itemsCount: items.length,
-      paymentMethod: selectedPayment,
-      customerNameLen: customerName.trim().length
-    });
-
-    let orderResponse: Response;
-    try {
-      orderResponse = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-    } catch (netErr) {
-      console.error("[ORDEE checkout] fetch falló (red/offline)", netErr);
-      setCheckoutError("No se pudo contactar el servidor (/api/orders). ¿Next corriendo en el mismo origin?");
-      setCheckoutErrorDetail(netErr instanceof Error ? netErr.message : String(netErr));
-      setLoading(false);
-      return;
-    }
-
-    const rawText = await orderResponse.text();
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(rawText) as Record<string, unknown>;
-    } catch {
-      parsed = { rawBody: rawText };
-    }
-
-    if (!orderResponse.ok) {
-      console.error("[ORDEE checkout] POST /api/orders FALLA status=", orderResponse.status, parsed);
-      const body = parsed as Record<string, unknown>;
-      const msg =
-        typeof body?.error === "string"
-          ? body.error
-          : `Error HTTP ${orderResponse.status}`;
-      const detailLine =
-        typeof body?.detail === "string"
-          ? body.detail
-          : typeof body?.step === "string"
-            ? `step: ${body.step}`
-            : rawText.slice(0, 500);
-      setCheckoutError(`${msg} — ${detailLine}`);
-      setCheckoutErrorDetail(parsed);
-      setLoading(false);
-      return;
-    }
-
-    const orderData = parsed as { orderId: string; total: number };
-
-    if (!orderData.orderId) {
-      console.error("[ORDEE checkout] Respuesta OK pero sin orderId", parsed);
-      setCheckoutError("Respuesta sin orderId — revisá Network en DevTools.");
-      setCheckoutErrorDetail(parsed);
-      setLoading(false);
-      return;
-    }
-
-    console.info("[ORDEE checkout] orden creada en DB orderId=", orderData.orderId, "total=", orderData.total);
-
     if (selectedPayment === "mercado_pago") {
-      console.info("[ORDEE checkout] Creando preference Mercado Pago…");
-      const preferenceResponse = await fetch("/api/payments/mercadopago/preference", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: orderData.orderId,
-          title: `Pedido ORDEE #${orderData.orderId.slice(0, 8)}`,
-          quantity: 1,
-          unitPrice: orderData.total
-        })
-      });
-      const prefText = await preferenceResponse.text();
+      console.info("[ORDEE checkout] Checkout Pro → create-preference");
+      let prefResponse: Response;
+      try {
+        prefResponse = await fetch("/api/mercadopago/create-preference", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(basePayload)
+        });
+      } catch (netErr) {
+        setCheckoutError("No se pudo contactar Mercado Pago.");
+        setCheckoutErrorDetail(netErr instanceof Error ? netErr.message : String(netErr));
+        setLoading(false);
+        return;
+      }
+
+      const prefText = await prefResponse.text();
       let prefParsed: Record<string, unknown> = {};
       try {
         prefParsed = JSON.parse(prefText) as Record<string, unknown>;
@@ -209,68 +201,61 @@ function CheckoutContent() {
         prefParsed = { raw: prefText };
       }
 
-      if (preferenceResponse.ok) {
-        const checkoutUrl =
-          typeof prefParsed.checkoutUrl === "string" ? prefParsed.checkoutUrl : undefined;
-        const preferenceId =
-          typeof prefParsed.preferenceId === "string" ? prefParsed.preferenceId : undefined;
-        if (preferenceId) {
-          console.info("[ORDEE checkout] preference creada", preferenceId);
-          setMpPreferenceId(preferenceId);
-        }
-        if (checkoutUrl) {
-          setMpCheckoutUrl(checkoutUrl);
-        }
-
-        clearCart();
-        setOrderId(orderData.orderId);
-        setOpenPaymentModal(false);
-        setLoading(false);
-
-        if (!preferenceId && checkoutUrl) {
-          console.info("[ORDEE checkout] Sin preferenceId usable, fallback a checkout URL");
-          window.location.href = checkoutUrl;
-          return;
-        }
-
-        if (preferenceId) {
-          return;
-        }
-
-        if (checkoutUrl) {
-          window.location.href = checkoutUrl;
-          return;
-        }
-        console.warn("[ORDEE checkout] preference OK pero sin checkoutUrl", prefParsed);
-        setCheckoutError("Mercado Pago no devolvió URL de checkout. El pedido SÍ existe en Supabase.");
+      if (!prefResponse.ok) {
+        setCheckoutError(String(prefParsed.error ?? `Error HTTP ${prefResponse.status}`));
         setCheckoutErrorDetail(prefParsed);
         setLoading(false);
         return;
       }
-      console.error("[ORDEE checkout] preference FALLA", preferenceResponse.status, prefParsed);
-      setCheckoutError(
-        `Mercado Pago (${preferenceResponse.status}): ${String(prefParsed.error ?? prefText)}. El pedido quedó creado.`
-      );
-      setCheckoutErrorDetail(prefParsed);
-      setLoading(false);
-      clearCart();
-      setOrderId(orderData.orderId);
+
+      const checkoutUrl = typeof prefParsed.checkoutUrl === "string" ? prefParsed.checkoutUrl : null;
+      if (!checkoutUrl) {
+        setCheckoutError("Mercado Pago no devolvió URL de Checkout Pro.");
+        setCheckoutErrorDetail(prefParsed);
+        setLoading(false);
+        return;
+      }
+
       setOpenPaymentModal(false);
+      setLoading(false);
+      window.location.href = checkoutUrl;
       return;
     }
 
-    const confirmResp = await fetch("/api/pagos/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: orderData.orderId, paymentMethod: selectedPayment })
-    });
-    const confirmText = await confirmResp.text();
-    if (!confirmResp.ok) {
-      console.error("[ORDEE checkout] /api/pagos/confirm FALLA", confirmResp.status, confirmText);
-      setCheckoutError(`Pago manual no confirmado HTTP ${confirmResp.status}. Pedido existe: ${orderData.orderId}`);
-      setCheckoutErrorDetail(confirmText);
-    } else {
-      console.info("[ORDEE checkout] pago manual confirm OK");
+    let orderResponse: Response;
+    try {
+      orderResponse = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...basePayload, paymentMethod: selectedPayment })
+      });
+    } catch (netErr) {
+      setCheckoutError("No se pudo contactar el servidor.");
+      setCheckoutErrorDetail(netErr instanceof Error ? netErr.message : String(netErr));
+      setLoading(false);
+      return;
+    }
+
+    const rawText = await orderResponse.text();
+    let parsed: Record<string, unknown> = {};
+    try {
+      parsed = JSON.parse(rawText) as Record<string, unknown>;
+    } catch {
+      parsed = { raw: rawText };
+    }
+
+    if (!orderResponse.ok) {
+      setCheckoutError(String(parsed.error ?? `Error HTTP ${orderResponse.status}`));
+      setCheckoutErrorDetail(parsed);
+      setLoading(false);
+      return;
+    }
+
+    const orderData = parsed as { orderId?: string };
+    if (!orderData.orderId) {
+      setCheckoutError("Respuesta sin orderId.");
+      setLoading(false);
+      return;
     }
 
     if (selectedPayment === "efectivo") {
@@ -323,33 +308,6 @@ function CheckoutContent() {
         <p className="font-mono text-xs text-brand-muted sm:text-sm">ID pedido: {orderId}</p>
         <p className="text-sm text-brand-muted">Estado cocina: <span className="font-medium text-brand-ink">{orderState?.status ?? "cargando..."}</span></p>
         <p className="text-sm text-brand-muted">Estado pago: <span className="font-medium text-brand-ink">{orderState?.payment_status ?? "cargando..."}</span></p>
-        {orderState?.payment_method === "mercado_pago" && orderState?.payment_status !== "pagado" && mpPreferenceId && mercadoPagoPublicKey ? (
-          <div className="space-y-3 rounded-xl border border-brand-border bg-brand-soft p-4">
-            <p className="text-sm font-medium text-brand-ink">Completa el pago con Mercado Pago:</p>
-            <MercadoPagoWalletBrick
-              publicKey={mercadoPagoPublicKey}
-              preferenceId={mpPreferenceId}
-              onReady={() => console.info("[ORDEE checkout] Wallet Brick listo")}
-              onSubmit={() => console.info("[ORDEE checkout] Wallet Brick submit")}
-              onError={(error) => console.error("[ORDEE checkout] Wallet Brick error", error)}
-            />
-            {mpCheckoutUrl ? (
-              <a
-                href={mpCheckoutUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex rounded-lg border border-brand-border bg-white px-3 py-2 text-xs font-medium text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.99]"
-              >
-                Abrir checkout Mercado Pago en nueva pestaña
-              </a>
-            ) : null}
-          </div>
-        ) : null}
-        {orderState?.payment_method === "mercado_pago" && orderState?.payment_status !== "pagado" && !mercadoPagoPublicKey ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
-            Falta `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`; no se puede renderizar Wallet Brick.
-          </p>
-        ) : null}
         <div className="flex flex-wrap gap-2 pt-1">
           <Link
             href="/menu"
@@ -358,6 +316,15 @@ function CheckoutContent() {
             Volver al menu
           </Link>
         </div>
+      </section>
+    );
+  }
+
+  if (mpWaiting) {
+    return (
+      <section className="rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm">
+        <p className="text-lg font-semibold text-brand-ink">Confirmando tu pago…</p>
+        <p className="mt-2 text-sm text-brand-muted">Esperá unos segundos. Cuando Mercado Pago apruebe el cobro, el pedido irá a cocina.</p>
       </section>
     );
   }
