@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const qsId = request.nextUrl.searchParams.get("id");
   const rawId = dataId != null ? String(dataId) : qsId ?? null;
 
-  console.info(TAG, "[MP webhook received]", {
+  console.info(TAG, "[mp webhook approved] received", {
     type,
     action,
     rawId,
@@ -75,7 +75,10 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await fulfillMercadoPagoByPaymentId(supabase, rawId);
-  console.info(TAG, "resultado fulfill", result);
+  console.info(TAG, "[webhook session update] resultado fulfill", result);
+  if (result.orderId) {
+    console.info(TAG, "[session completed] orderId=", result.orderId);
+  }
 
   return NextResponse.json(result);
 }
