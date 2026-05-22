@@ -28,7 +28,7 @@ type OrderState = {
   table_number?: string | null;
 };
 
-function CheckoutContent() { 
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -44,26 +44,34 @@ function CheckoutContent() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutErrorDetail, setCheckoutErrorDetail] = useState<unknown>(null);
   const [testOrderBusy, setTestOrderBusy] = useState(false);
+
+  /**
+   * mpWaiting  — polling for session orderId (spinner shown)
+   * mpApproved — session returned orderId (payment confirmed, success screen shown immediately)
+   *              Decoupled from orderState so the UI transitions without waiting for the order fetch.
+   */
   const [mpWaiting, setMpWaiting] = useState(false);
-  /** Botón temporal de prueba: dev siempre o con NEXT_PUBLIC_ORDER_DEBUG=1 */
+  const [mpApproved, setMpApproved] = useState(false);
+
   const showOrderDebug =
     process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_ORDER_DEBUG === "1";
 
   const mpResult = searchParams.get("mp");
   const mpSessionId = searchParams.get("sessionId");
 
+  // ── Session / cart bootstrap ──────────────────────────────────────────────
   useEffect(() => {
     const session = getSession();
     if (!session) {
       router.replace("/");
       return;
     }
-
     setCustomerName(session.name);
     setTableNumber(session.tableNumber ?? window.localStorage.getItem("ordee_table") ?? "1");
     setItems(getCart());
   }, [router]);
 
+  // ── Order state sync (polling + realtime) ─────────────────────────────────
   useEffect(() => {
     if (!orderId) return;
 
@@ -74,50 +82,48 @@ function CheckoutContent() {
     };
 
     syncOrderState();
-    const id = window.setInterval(syncOrderState, 3000);
+    const intervalId = window.setInterval(syncOrderState, 4000);
     const supabase = createSupabaseBrowserClient();
 
     if (!supabase) {
-      return () => window.clearInterval(id);
+      return () => window.clearInterval(intervalId);
     }
 
     const channel = supabase
       .channel(`ordee-mvp-order-${orderId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `id=eq.${orderId}` }, (payload) => {
-        console.info("[ORDEE checkout realtime] orden", orderId, payload.eventType);
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `id=eq.${orderId}` }, () => {
         syncOrderState();
       })
       .subscribe((status, err) => {
-        if (status === "CHANNEL_ERROR") {
-          console.error("[ORDEE checkout realtime] CHANNEL_ERROR", err);
-        } else if (status === "SUBSCRIBED") {
-          console.info("[ORDEE checkout realtime] SUBSCRIBED orders id=", orderId);
-        }
+        if (status === "CHANNEL_ERROR") console.error("[ORDEE checkout realtime] CHANNEL_ERROR", err);
+        if (status === "SUBSCRIBED") console.info("[ORDEE checkout realtime] SUBSCRIBED orderId=", orderId);
       });
 
     return () => {
-      window.clearInterval(id);
+      window.clearInterval(intervalId);
       supabase.removeChannel(channel);
     };
   }, [orderId]);
 
+  // ── Log when order status changes ────────────────────────────────────────
   useEffect(() => {
     if (!orderState) return;
     if (orderState.payment_status === "pagado") {
-      console.info("[ORDEE checkout] pago aprobado", { orderId: orderState.id, paymentMethod: orderState.payment_method });
-    } else if (orderState.payment_status === "fallido") {
-      console.warn("[ORDEE checkout] pago rechazado", { orderId: orderState.id, paymentMethod: orderState.payment_method });
+      console.info("[payment approved detected]", { orderId: orderState.id, method: orderState.payment_method });
     }
   }, [orderState]);
 
+  // ── MercadoPago: poll session until order is created ─────────────────────
   useEffect(() => {
     if (!mpSessionId || mpResult !== "success") return;
 
     setMpWaiting(true);
+    setMpApproved(false);
     setCheckoutError(null);
+    console.info("[payment pending]", { sessionId: mpSessionId });
 
     let attempts = 0;
-    const maxAttempts = 40; // 40 × 2s = 80s max
+    const maxAttempts = 40; // 40 × 2 s = 80 s max
 
     const poll = async () => {
       attempts += 1;
@@ -129,21 +135,37 @@ function CheckoutContent() {
           const data = (await res.json()) as { status: string; orderId: string | null };
 
           if (data.orderId) {
+            // ── Payment approved ─────────────────────────────────────────
             clearCart();
             console.info("[cart reset success]", { orderId: data.orderId });
+            console.info("[payment approved detected]", { orderId: data.orderId, via: "session_poll" });
+
+            // Set state FIRST — before any navigation — to guarantee the UI
+            // transitions immediately in the current render cycle.
             setOrderId(data.orderId);
+            setMpApproved(true);
             setMpWaiting(false);
-            router.replace(`/checkout?orderId=${data.orderId}`);
+
+            // Silently update the URL without triggering a React/Next.js navigation.
+            // This avoids the race condition where router.replace() causes a re-render
+            // that resets state before the batched updates above are committed.
+            try {
+              window.history.replaceState({}, "", `/checkout?orderId=${data.orderId}`);
+            } catch {
+              // ignore — URL update is cosmetic only
+            }
+
+            console.info("[checkout ui updated]", { state: "payment_confirmed" });
             return;
           }
 
           if (data.status === "failed") {
-            setCheckoutError("El pago no se completó. Intentá de nuevo.");
+            setCheckoutError("El pago no se completó. Podés intentar de nuevo.");
             setMpWaiting(false);
             return;
           }
         }
-        // Non-ok response or orderId not yet set — always retry until maxAttempts
+        // Non-ok or orderId not yet set — always retry until maxAttempts
       } catch {
         // Network error — always retry
       }
@@ -151,17 +173,18 @@ function CheckoutContent() {
       if (attempts < maxAttempts) {
         window.setTimeout(poll, 2000);
       } else {
-        setCheckoutError("Pago en proceso. Si Mercado Pago aprobó el cobro, el pedido llegará a cocina automáticamente.");
+        setCheckoutError("El pago está en proceso. Si Mercado Pago aprobó el cobro, el pedido ya llegó a cocina.");
         setMpWaiting(false);
       }
     };
 
     poll();
     return () => {
-      attempts = maxAttempts; // stop polling on unmount
+      attempts = maxAttempts; // stop pending setTimeout on unmount
     };
-  }, [mpSessionId, mpResult, router]);
+  }, [mpSessionId, mpResult]); // intentionally omit router — we no longer use it here
 
+  // ── Payment cancelled / rejected ─────────────────────────────────────────
   useEffect(() => {
     if (mpResult === "failure" && mpSessionId) {
       setCheckoutError("El pago fue cancelado o rechazado. Podés intentar de nuevo.");
@@ -170,6 +193,7 @@ function CheckoutContent() {
 
   const total = useMemo(() => cartTotal(items), [items]);
 
+  // ── Create order ─────────────────────────────────────────────────────────
   const createOrder = async () => {
     setLoading(true);
     setCheckoutError(null);
@@ -275,6 +299,7 @@ function CheckoutContent() {
     }
 
     clearCart();
+    console.info("[cart reset success]", { orderId: orderData.orderId, trigger: "cash_order" });
     setOrderId(orderData.orderId);
     setLoading(false);
     setOpenPaymentModal(false);
@@ -284,95 +309,131 @@ function CheckoutContent() {
     setTestOrderBusy(true);
     setCheckoutError(null);
     setCheckoutErrorDetail(null);
-    console.info("[ORDEE checkout] Crear pedido test → POST /api/debug/create-test-order");
     const res = await fetch("/api/debug/create-test-order", { method: "POST" });
     const text = await res.text();
     let data: Record<string, unknown> = {};
-    try {
-      data = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      data = { raw: text };
-    }
+    try { data = JSON.parse(text) as Record<string, unknown>; } catch { data = { raw: text }; }
     if (!res.ok) {
-      console.error("[ORDEE checkout] pedido test FALLA", res.status, data);
       setCheckoutError(`Test order: ${String(data.error ?? text)}`);
       setCheckoutErrorDetail(data);
       setTestOrderBusy(false);
       return;
     }
-    console.info("[ORDEE checkout] pedido test OK", data);
     alert(`Pedido test creado: ${String(data.orderId)} — debe verse en Cocina realtime.`);
     setTestOrderBusy(false);
   };
 
+  const handleBackToMenu = () => {
+    clearCart();
+    console.info("[cart reset success]", { orderId, trigger: "back_to_menu_button" });
+  };
+
+  // ── Spinner — waiting for webhook to confirm ──────────────────────────────
   if (mpWaiting) {
     return (
       <section className="flex min-h-[50vh] flex-col items-center justify-center gap-5 rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm">
         <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-brand-border">
-          <svg className="h-7 w-7 animate-spin text-brand-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
+          <svg
+            className="h-7 w-7 animate-spin text-brand-ink"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+              strokeLinecap="round"
+            />
           </svg>
         </div>
         <div>
           <p className="text-lg font-semibold text-brand-ink">Confirmando tu pago…</p>
-          <p className="mt-1 text-sm text-brand-muted">Esperá unos segundos. Mercado Pago está procesando el cobro.</p>
+          <p className="mt-1 text-sm text-brand-muted">
+            Esperá unos segundos. Mercado Pago está procesando el cobro.
+          </p>
         </div>
       </section>
     );
   }
 
+  // ── Success — MP payment approved ─────────────────────────────────────────
+  // mpApproved: set by the session poll the moment orderId is found
+  // isApprovedMp: also true on page refresh once orderState loads
+  const isApprovedMp =
+    mpApproved ||
+    (orderState?.payment_method === "mercado_pago" && orderState?.payment_status === "pagado");
+
+  if (orderId && isApprovedMp) {
+    console.info("[checkout ui updated]", { state: "payment_confirmed", orderId });
+    return (
+      <section className="flex flex-col items-center gap-6 rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm sm:p-10">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-4 ring-emerald-100">
+          <svg
+            className="h-8 w-8 text-emerald-600"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </div>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">
+            TU PAGO FUE CONFIRMADO
+          </h1>
+          <p className="text-sm text-brand-muted">Su pedido está en preparación</p>
+        </div>
+        <div className="w-full rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-left text-sm">
+          {orderState?.table_number ? (
+            <p className="text-brand-muted">
+              Mesa <span className="font-semibold text-brand-ink">{orderState.table_number}</span>
+            </p>
+          ) : null}
+          <p className="mt-1 font-mono text-xs text-brand-muted">#{orderId.slice(0, 8).toUpperCase()}</p>
+        </div>
+        <Link
+          href="/menu"
+          onClick={handleBackToMenu}
+          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98]"
+        >
+          Volver al menú
+        </Link>
+      </section>
+    );
+  }
+
+  // ── Success — efectivo / other order received ─────────────────────────────
   if (orderId) {
-    const isApprovedMp = orderState?.payment_method === "mercado_pago" && orderState?.payment_status === "pagado";
     const isCash = orderState?.payment_method === "efectivo";
     const stillLoading = !orderState;
 
-    const handleBackToMenu = () => {
-      clearCart();
-      console.info("[cart reset success]", { orderId, trigger: "back_to_menu_button" });
-    };
-
-    if (isApprovedMp) {
-      console.info("[payment approved ui]", { orderId, paymentMethod: orderState.payment_method });
-      return (
-        <section className="flex flex-col items-center gap-6 rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm sm:p-10">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-4 ring-emerald-100">
-            <svg className="h-8 w-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5"/>
-            </svg>
-          </div>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">TU PAGO FUE CONFIRMADO</h1>
-            <p className="text-sm text-brand-muted">Su pedido ya está en preparación</p>
-          </div>
-          <div className="w-full rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-left text-sm">
-            <p className="text-brand-muted">Mesa <span className="font-semibold text-brand-ink">{orderState.table_number ?? "—"}</span></p>
-            <p className="mt-1 font-mono text-xs text-brand-muted">#{orderId.slice(0, 8).toUpperCase()}</p>
-          </div>
-          <Link
-            href="/menu"
-            onClick={handleBackToMenu}
-            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98]"
-          >
-            Volver al menú
-          </Link>
-        </section>
-      );
-    }
-
-    // MP order still waiting for orderState, or cash order
     return (
       <section className="space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-brand-sm sm:p-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft">
-            <svg className="h-5 w-5 text-brand-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            <svg
+              className="h-5 w-5 text-brand-ink"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl">
             {stillLoading ? "Procesando…" : "Pedido recibido"}
           </h1>
         </div>
-        <p className="text-sm leading-relaxed text-brand-muted">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
+        <p className="text-sm leading-relaxed text-brand-muted">
+          Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.
+        </p>
         {isCash ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
             Cobrar en efectivo · Mesa {orderState.table_number ?? "—"}
@@ -382,9 +443,12 @@ function CheckoutContent() {
           <p className="text-sm text-brand-muted">Cargando estado del pedido…</p>
         ) : (
           <>
-            <p className="font-mono text-xs text-brand-muted sm:text-sm">ID: {orderId.slice(0, 8).toUpperCase()}</p>
+            <p className="font-mono text-xs text-brand-muted sm:text-sm">
+              ID: {orderId.slice(0, 8).toUpperCase()}
+            </p>
             <p className="text-sm text-brand-muted">
-              Estado: <span className="font-medium text-brand-ink">{orderState.status}</span>
+              Estado:{" "}
+              <span className="font-medium text-brand-ink">{orderState.status}</span>
             </p>
           </>
         )}
@@ -401,6 +465,7 @@ function CheckoutContent() {
     );
   }
 
+  // ── Main checkout form ────────────────────────────────────────────────────
   return (
     <section className="space-y-5 sm:space-y-6">
       <header>
@@ -419,7 +484,8 @@ function CheckoutContent() {
             </pre>
           ) : null}
           <p className="mt-2 text-xs text-red-800/80">
-            Logs en consola del navegador (F12). En servidor: mirá la terminal donde corre `npm run dev` líneas `[ORDEE api/orders POST]`.
+            Logs en consola del navegador (F12). En servidor: mirá la terminal donde corre{" "}
+            <code>npm run dev</code>.
           </p>
         </div>
       ) : null}
@@ -428,7 +494,8 @@ function CheckoutContent() {
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm shadow-brand-sm">
           <p className="font-semibold text-amber-900">Debug pedidos</p>
           <p className="mt-1 text-amber-900/80">
-            Probá insert sin carrito para aislar errores DB/realtime. En producción desactivalo (solo dev o NEXT_PUBLIC_ORDER_DEBUG=1).
+            Probá insert sin carrito para aislar errores DB/realtime. Solo dev o{" "}
+            <code>NEXT_PUBLIC_ORDER_DEBUG=1</code>.
           </p>
           <button
             type="button"
@@ -445,15 +512,29 @@ function CheckoutContent() {
         <div className="space-y-1 rounded-xl border border-brand-border bg-brand-card p-4 shadow-brand-sm sm:space-y-2 sm:p-5">
           <label className="block text-sm font-medium text-brand-ink">
             Nombre
-            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} className="ordee-input" />
+            <input
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="ordee-input"
+            />
           </label>
           <label className="block text-sm font-medium text-brand-ink">
             Mesa
-            <input value={tableNumber} onChange={(event) => setTableNumber(event.target.value)} className="ordee-input" inputMode="numeric" />
+            <input
+              value={tableNumber}
+              onChange={(e) => setTableNumber(e.target.value)}
+              className="ordee-input"
+              inputMode="numeric"
+            />
           </label>
           <label className="block text-sm font-medium text-brand-ink">
             Observaciones
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} className="ordee-textarea" rows={3} />
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="ordee-textarea"
+              rows={3}
+            />
           </label>
         </div>
 
@@ -465,13 +546,17 @@ function CheckoutContent() {
                 <span className="min-w-0 text-brand-ink">
                   {entry.quantity} × {entry.item.name}
                 </span>
-                <span className="shrink-0 tabular-nums font-medium text-brand-ink">{formatArs(entry.item.price * entry.quantity)}</span>
+                <span className="shrink-0 tabular-nums font-medium text-brand-ink">
+                  {formatArs(entry.item.price * entry.quantity)}
+                </span>
               </li>
             ))}
           </ul>
           <div className="mt-4">
             <p className="text-xs font-medium uppercase tracking-wide text-brand-muted">Total</p>
-            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-brand-ink sm:text-3xl">{formatArs(total)}</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-brand-ink sm:text-3xl">
+              {formatArs(total)}
+            </p>
           </div>
           <button
             type="button"
@@ -492,7 +577,10 @@ function CheckoutContent() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-brand-ink/25 px-4 backdrop-blur-[2px]">
           <div className="w-full max-w-md space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-lg">
             <h3 className="text-lg font-semibold text-brand-ink sm:text-xl">Elegir pago</h3>
-            <p className="text-sm text-brand-muted">Monto final: <span className="font-semibold tabular-nums text-brand-ink">{formatArs(total)}</span></p>
+            <p className="text-sm text-brand-muted">
+              Monto final:{" "}
+              <span className="font-semibold tabular-nums text-brand-ink">{formatArs(total)}</span>
+            </p>
             <div className="space-y-2">
               {paymentOptions.map((option) => (
                 <label
@@ -514,7 +602,9 @@ function CheckoutContent() {
                     {option.description ? (
                       <span
                         className={`mt-1 block text-xs font-normal leading-snug ${
-                          selectedPayment === option.id ? "text-brand-accentFg/85" : "text-brand-muted"
+                          selectedPayment === option.id
+                            ? "text-brand-accentFg/85"
+                            : "text-brand-muted"
                         }`}
                       >
                         {option.description}
@@ -552,6 +642,7 @@ function CheckoutContent() {
     </section>
   );
 }
+
 export default function CheckoutPage() {
   return (
     <Suspense fallback={<div className="text-sm text-brand-muted">Cargando checkout...</div>}>
