@@ -117,31 +117,37 @@ function CheckoutContent() {
     setCheckoutError(null);
 
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 40; // 40 × 2s = 80s max
 
     const poll = async () => {
       attempts += 1;
-      const res = await fetch(`/api/mercadopago/session/${mpSessionId}`, { cache: "no-store" });
-      if (!res.ok) {
-        if (attempts >= maxAttempts) {
-          setCheckoutError("No pudimos confirmar el pago. Si ya pagaste, el pedido puede aparecer en cocina en unos segundos.");
-          setMpWaiting(false);
+
+      try {
+        const res = await fetch(`/api/mercadopago/session/${mpSessionId}`, { cache: "no-store" });
+
+        if (res.ok) {
+          const data = (await res.json()) as { status: string; orderId: string | null };
+
+          if (data.orderId) {
+            clearCart();
+            console.info("[cart reset success]", { orderId: data.orderId });
+            setOrderId(data.orderId);
+            setMpWaiting(false);
+            router.replace(`/checkout?orderId=${data.orderId}`);
+            return;
+          }
+
+          if (data.status === "failed") {
+            setCheckoutError("El pago no se completó. Intentá de nuevo.");
+            setMpWaiting(false);
+            return;
+          }
         }
-        return;
+        // Non-ok response or orderId not yet set — always retry until maxAttempts
+      } catch {
+        // Network error — always retry
       }
-      const data = (await res.json()) as { status: string; orderId: string | null };
-      if (data.orderId) {
-        clearCart();
-        setOrderId(data.orderId);
-        setMpWaiting(false);
-        router.replace(`/checkout?orderId=${data.orderId}`);
-        return;
-      }
-      if (data.status === "failed") {
-        setCheckoutError("El pago no se completó. Intentá de nuevo.");
-        setMpWaiting(false);
-        return;
-      }
+
       if (attempts < maxAttempts) {
         window.setTimeout(poll, 2000);
       } else {
@@ -152,7 +158,7 @@ function CheckoutContent() {
 
     poll();
     return () => {
-      attempts = maxAttempts;
+      attempts = maxAttempts; // stop polling on unmount
     };
   }, [mpSessionId, mpResult, router]);
 
@@ -320,8 +326,13 @@ function CheckoutContent() {
     const isCash = orderState?.payment_method === "efectivo";
     const stillLoading = !orderState;
 
+    const handleBackToMenu = () => {
+      clearCart();
+      console.info("[cart reset success]", { orderId, trigger: "back_to_menu_button" });
+    };
+
     if (isApprovedMp) {
-      console.info("[payment approved]", { orderId, paymentMethod: orderState.payment_method });
+      console.info("[payment approved ui]", { orderId, paymentMethod: orderState.payment_method });
       return (
         <section className="flex flex-col items-center gap-6 rounded-2xl border border-brand-border bg-brand-card p-8 text-center shadow-brand-sm sm:p-10">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-4 ring-emerald-100">
@@ -330,15 +341,16 @@ function CheckoutContent() {
             </svg>
           </div>
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">PAGO CONFIRMADO</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-brand-ink sm:text-3xl">TU PAGO FUE CONFIRMADO</h1>
             <p className="text-sm text-brand-muted">Su pedido ya está en preparación</p>
           </div>
-          <div className="w-full rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-sm">
+          <div className="w-full rounded-xl border border-brand-border bg-brand-soft px-4 py-3 text-left text-sm">
             <p className="text-brand-muted">Mesa <span className="font-semibold text-brand-ink">{orderState.table_number ?? "—"}</span></p>
             <p className="mt-1 font-mono text-xs text-brand-muted">#{orderId.slice(0, 8).toUpperCase()}</p>
           </div>
           <Link
             href="/menu"
+            onClick={handleBackToMenu}
             className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98]"
           >
             Volver al menú
@@ -347,6 +359,7 @@ function CheckoutContent() {
       );
     }
 
+    // MP order still waiting for orderState, or cash order
     return (
       <section className="space-y-4 rounded-2xl border border-brand-border bg-brand-card p-5 shadow-brand-sm sm:p-6">
         <div className="flex items-center gap-3">
@@ -355,7 +368,9 @@ function CheckoutContent() {
               <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
             </svg>
           </div>
-          <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl">Pedido recibido</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl">
+            {stillLoading ? "Procesando…" : "Pedido recibido"}
+          </h1>
         </div>
         <p className="text-sm leading-relaxed text-brand-muted">Tu pedido fue enviado a cocina y queda sincronizado en tiempo real.</p>
         {isCash ? (
@@ -363,17 +378,20 @@ function CheckoutContent() {
             Cobrar en efectivo · Mesa {orderState.table_number ?? "—"}
           </p>
         ) : null}
-        <p className="font-mono text-xs text-brand-muted sm:text-sm">ID: {orderId.slice(0, 8).toUpperCase()}</p>
-        {!stillLoading ? (
-          <p className="text-sm text-brand-muted">
-            Estado: <span className="font-medium text-brand-ink">{orderState.status}</span>
-          </p>
+        {stillLoading ? (
+          <p className="text-sm text-brand-muted">Cargando estado del pedido…</p>
         ) : (
-          <p className="text-sm text-brand-muted">Cargando estado…</p>
+          <>
+            <p className="font-mono text-xs text-brand-muted sm:text-sm">ID: {orderId.slice(0, 8).toUpperCase()}</p>
+            <p className="text-sm text-brand-muted">
+              Estado: <span className="font-medium text-brand-ink">{orderState.status}</span>
+            </p>
+          </>
         )}
         <div className="flex flex-wrap gap-2 pt-1">
           <Link
             href="/menu"
+            onClick={handleBackToMenu}
             className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
           >
             Volver al menú
