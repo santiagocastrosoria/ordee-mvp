@@ -49,7 +49,7 @@ export default function IngresarClientePage() {
         type="button"
         onClick={signIn}
         disabled={loading || !email || !password}
-        className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 disabled:opacity-45"
+        className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap-lg hover:opacity-90 disabled:opacity-45"
       >
         {loading ? "Ingresando..." : "Ingresar"}
       </button>

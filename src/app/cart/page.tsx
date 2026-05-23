@@ -9,7 +9,7 @@ import { getSession } from "@/lib/session";
 import { CartItem } from "@/lib/types";
 
 const qtyBtn =
-  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-white text-base font-medium text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft hover:border-brand-muted/30 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink/20 disabled:pointer-events-none disabled:opacity-40";
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-white text-base font-medium text-brand-ink shadow-sm ordee-tap-sm hover:bg-brand-soft hover:border-brand-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink/20 disabled:pointer-events-none disabled:opacity-40";
 
 function TrashIcon() {
   return (
@@ -54,7 +54,7 @@ export default function CartPage() {
           <p className="text-sm text-brand-muted">No hay productos en el carrito.</p>
           <Link
             href="/menu"
-            className="mt-4 inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
+            className="mt-4 inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
           >
             Ir al menu
           </Link>
@@ -75,7 +75,7 @@ export default function CartPage() {
                   <button
                     type="button"
                     onClick={() => removeLine(entry.item.id)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-border bg-white text-brand-muted shadow-sm transition duration-tap ease-out hover:border-red-200 hover:bg-red-50 hover:text-red-700 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/50"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-border bg-white text-brand-muted shadow-sm ordee-tap-sm hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300/50"
                     aria-label={`Eliminar ${entry.item.name}`}
                   >
                     <TrashIcon />
@@ -97,7 +97,7 @@ export default function CartPage() {
             <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-brand-ink sm:text-3xl">{formatArs(total)}</p>
             <Link
               href="/checkout"
-              className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:w-auto"
+              className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:w-auto"
             >
               Continuar al pago
             </Link>

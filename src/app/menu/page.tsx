@@ -134,7 +134,7 @@ function MenuContent() {
         </p>
         <Link
           href="/cart"
-          className="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-brand-border bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:min-h-[36px] sm:px-3 sm:text-sm"
+          className="inline-flex min-h-[34px] items-center justify-center rounded-lg border border-brand-border bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-ink shadow-sm ordee-tap hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:min-h-[36px] sm:px-3 sm:text-sm"
         >
           Ver carrito ({cartCount})
         </Link>
@@ -147,10 +147,10 @@ function MenuContent() {
               key={category}
               type="button"
               onClick={() => goToCategory(category)}
-              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition duration-tap ease-out sm:px-3.5 sm:py-1.5 sm:text-sm ${
+              className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ordee-tap sm:px-3.5 sm:py-1.5 sm:text-sm ${
                 activeCategory === category
-                  ? "bg-brand-ink text-brand-accentFg shadow-sm ring-1 ring-brand-ink/10 active:scale-[0.98]"
-                  : "border border-transparent bg-brand-soft text-brand-muted hover:bg-brand-border/50 hover:text-brand-ink active:scale-[0.98]"
+                  ? "bg-brand-ink text-brand-accentFg shadow-sm ring-1 ring-brand-ink/10"
+                  : "border border-transparent bg-brand-soft text-brand-muted hover:bg-brand-border/50 hover:text-brand-ink"
               }`}
             >
               {categoryLabels[category]}

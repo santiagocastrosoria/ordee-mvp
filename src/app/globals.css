@@ -49,3 +49,85 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Tactile press feedback — defined OUTSIDE @layer so they beat Tailwind's
+ * layered utilities in the CSS cascade (same specificity, later position wins).
+ *
+ * Asymmetric timing:
+ *   Press   → 80ms ease-in   (instant, snappy feedback)
+ *   Release → 220ms spring   (satisfying bounce-back)
+ *
+ * Three sizes:
+ *   ordee-tap-sm  → small actions: +/- qty, Agregar, trash icon
+ *   ordee-tap     → standard buttons and nav links
+ *   ordee-tap-lg  → full-width CTAs
+ */
+
+/* Shared properties */
+.ordee-tap-sm,
+.ordee-tap,
+.ordee-tap-lg {
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+
+/* Release transitions (spring bounce-back) */
+.ordee-tap-sm {
+  transition:
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 180ms ease-out,
+    opacity 150ms ease-out,
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out;
+}
+.ordee-tap {
+  transition:
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 180ms ease-out,
+    opacity 150ms ease-out,
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+.ordee-tap-lg {
+  transition:
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 160ms ease-out,
+    opacity 150ms ease-out,
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+
+/* Press: fast ease-in, clear scale, shadow removed to simulate depth */
+.ordee-tap-sm:active:not(:disabled) {
+  transform: scale(0.88);
+  box-shadow: none;
+  transition:
+    transform 80ms ease-in,
+    box-shadow 60ms ease-in,
+    opacity 80ms ease-in,
+    background-color 80ms ease-in,
+    border-color 80ms ease-in,
+    color 80ms ease-in;
+}
+.ordee-tap:active:not(:disabled) {
+  transform: scale(0.94);
+  box-shadow: none;
+  transition:
+    transform 80ms ease-in,
+    box-shadow 60ms ease-in,
+    opacity 80ms ease-in,
+    background-color 80ms ease-in,
+    border-color 80ms ease-in;
+}
+.ordee-tap-lg:active:not(:disabled) {
+  transform: scale(0.975);
+  box-shadow: none;
+  transition:
+    transform 80ms ease-in,
+    box-shadow 60ms ease-in,
+    opacity 80ms ease-in,
+    background-color 80ms ease-in,
+    border-color 80ms ease-in;
+}

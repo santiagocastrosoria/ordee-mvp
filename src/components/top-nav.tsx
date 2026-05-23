@@ -34,7 +34,7 @@ export function TopNav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5">
         <Link
           href="/menu"
-          className="text-base font-semibold tracking-tight text-brand-ink transition duration-tap ease-out hover:opacity-70 active:scale-[0.98] sm:text-lg"
+          className="text-base font-semibold tracking-tight text-brand-ink ordee-tap hover:opacity-70 sm:text-lg"
         >
           ORDEE
         </Link>
@@ -46,10 +46,10 @@ export function TopNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`rounded-full px-2.5 py-1.5 font-medium transition duration-tap ease-out sm:px-3 sm:py-1.5 ${
+                  className={`rounded-full px-2.5 py-1.5 font-medium ordee-tap sm:px-3 sm:py-1.5 ${
                     active
-                      ? "bg-brand-ink text-brand-accentFg shadow-sm active:scale-[0.98]"
-                      : "text-brand-muted hover:bg-brand-soft hover:text-brand-ink active:scale-[0.98]"
+                      ? "bg-brand-ink text-brand-accentFg shadow-sm"
+                      : "text-brand-muted hover:bg-brand-soft hover:text-brand-ink"
                   }`}
                 >
                   {link.label}
@@ -63,7 +63,7 @@ export function TopNav() {
               <button
                 type="button"
                 onClick={signOut}
-                className="rounded-full border border-brand-border bg-white px-2 py-1 font-medium text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:px-2.5"
+                className="rounded-full border border-brand-border bg-white px-2 py-1 font-medium text-brand-ink shadow-sm ordee-tap hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 sm:px-2.5"
               >
                 Salir
               </button>

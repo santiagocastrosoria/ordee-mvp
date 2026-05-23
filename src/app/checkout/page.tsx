@@ -440,7 +440,7 @@ function CheckoutContent() {
         <Link
           href="/menu"
           onClick={handleBackToMenu}
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98]"
+          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap-lg hover:opacity-90"
         >
           Volver al menú
         </Link>
@@ -499,7 +499,7 @@ function CheckoutContent() {
           <Link
             href="/menu"
             onClick={handleBackToMenu}
-            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
+            className="inline-flex min-h-[40px] items-center justify-center rounded-lg bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
           >
             Volver al menú
           </Link>
@@ -544,7 +544,7 @@ function CheckoutContent() {
             type="button"
             onClick={createTestOrder}
             disabled={testOrderBusy}
-            className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-950 transition duration-tap ease-out hover:bg-amber-100 disabled:opacity-50"
+            className="mt-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-950 ordee-tap hover:bg-amber-100 disabled:opacity-50"
           >
             {testOrderBusy ? "Creando…" : "Crear pedido test"}
           </button>
@@ -609,7 +609,7 @@ function CheckoutContent() {
               setOpenPaymentModal(true);
             }}
             disabled={loading || items.length === 0 || !customerName.trim()}
-            className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+            className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
           >
             Confirmar Pedido y Pagar
           </button>
@@ -628,7 +628,7 @@ function CheckoutContent() {
               {paymentOptions.map((option) => (
                 <label
                   key={option.id}
-                  className={`flex cursor-pointer items-stretch gap-3 rounded-xl border px-3 py-2.5 text-sm transition duration-tap ease-out ${
+                  className={`flex cursor-pointer items-stretch gap-3 rounded-xl border px-3 py-2.5 text-sm ordee-tap ${
                     selectedPayment === option.id
                       ? "border-brand-ink bg-brand-ink text-brand-accentFg shadow-sm"
                       : "border-brand-border bg-white text-brand-ink hover:border-brand-muted/40 hover:bg-brand-soft"
@@ -666,14 +666,14 @@ function CheckoutContent() {
               <button
                 type="button"
                 onClick={() => setOpenPaymentModal(false)}
-                className="flex-1 rounded-lg border border-brand-border bg-white px-3 py-2.5 text-sm font-semibold text-brand-ink shadow-sm transition duration-tap ease-out hover:bg-brand-soft active:scale-[0.99]"
+                className="flex-1 rounded-lg border border-brand-border bg-white px-3 py-2.5 text-sm font-semibold text-brand-ink shadow-sm ordee-tap hover:bg-brand-soft"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={createOrder}
-                className="flex-1 rounded-lg bg-brand-accent px-3 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm transition duration-tap ease-out hover:opacity-90 active:scale-[0.99] disabled:opacity-45"
+                className="flex-1 rounded-lg bg-brand-accent px-3 py-2.5 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap hover:opacity-90 disabled:opacity-45"
                 disabled={loading}
               >
                 {loading ? "Procesando..." : "Confirmar"}
