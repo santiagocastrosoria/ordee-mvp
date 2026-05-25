@@ -227,6 +227,12 @@ function CheckoutContent() {
     };
   }, [mpSessionId, mpResult]); // intentionally omit router — no longer used here
 
+  // ── Log MP callback on return from MercadoPago ───────────────────────────
+  useEffect(() => {
+    if (!mpResult || !mpSessionId) return;
+    console.info("[mp callback]", { result: mpResult, sessionId: mpSessionId });
+  }, [mpResult, mpSessionId]);
+
   // ── Payment cancelled / rejected ─────────────────────────────────────────
   useEffect(() => {
     if (mpResult === "failure" && mpSessionId) {
@@ -257,18 +263,32 @@ function CheckoutContent() {
     if (selectedPayment === "mercado_pago") {
       console.info("[ORDEE checkout] Checkout Pro → create-preference");
       let prefResponse: Response;
+
+      // Abort after 30 s — prevents the button from freezing indefinitely on
+      // network hiccups or server timeouts.
+      const controller = new AbortController();
+      const abortTimer = window.setTimeout(() => controller.abort(), 30_000);
+
       try {
         prefResponse = await fetch("/api/mercadopago/create-preference", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(basePayload)
+          body: JSON.stringify(basePayload),
+          signal: controller.signal
         });
       } catch (netErr) {
-        setCheckoutError("No se pudo contactar Mercado Pago.");
+        window.clearTimeout(abortTimer);
+        const isTimeout = netErr instanceof Error && netErr.name === "AbortError";
+        setCheckoutError(
+          isTimeout
+            ? "La solicitud tardó demasiado. Revisá tu conexión e intentá de nuevo."
+            : "No se pudo contactar Mercado Pago."
+        );
         setCheckoutErrorDetail(netErr instanceof Error ? netErr.message : String(netErr));
         setLoading(false);
         return;
       }
+      window.clearTimeout(abortTimer);
 
       const prefText = await prefResponse.text();
       let prefParsed: Record<string, unknown> = {};
@@ -292,6 +312,12 @@ function CheckoutContent() {
         setLoading(false);
         return;
       }
+
+      console.info("[mp redirect]", {
+        sessionId: prefParsed.sessionId,
+        preferenceId: prefParsed.preferenceId,
+        url: checkoutUrl
+      });
 
       setOpenPaymentModal(false);
       setLoading(false);
@@ -607,6 +633,7 @@ function CheckoutContent() {
               setCheckoutError(null);
               setCheckoutErrorDetail(null);
               setOpenPaymentModal(true);
+              console.info("[mp checkout render]", { items: items.length, total });
             }}
             disabled={loading || items.length === 0 || !customerName.trim()}
             className="mt-4 flex min-h-[48px] w-full items-center justify-center rounded-lg bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accentFg shadow-sm ordee-tap-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"

@@ -130,10 +130,11 @@ export async function POST(request: NextRequest) {
 
   console.info(TAG, "notificationUrl=", notificationUrl, "backUrl base=", appUrl);
 
+  // MP requires integer unit_price for ARS; round defensively
   const mpItems = body.items.map((entry) => ({
     title: entry.item.name.slice(0, 256),
     quantity: entry.quantity,
-    unit_price: entry.item.price
+    unit_price: Math.round(entry.item.price)
   }));
 
   // ── 7. Create MercadoPago preference ─────────────────────────────────────
@@ -161,6 +162,11 @@ export async function POST(request: NextRequest) {
   }
 
   console.info(TAG, "MP preference OK sessionId=", sessionId, "preferenceId=", pref.preferenceId);
+  console.info(TAG, "[mp sdk init] preference ready", {
+    sessionId,
+    preferenceId: pref.preferenceId,
+    checkoutUrl: pref.checkoutUrl
+  });
 
   return NextResponse.json({
     sessionId,
