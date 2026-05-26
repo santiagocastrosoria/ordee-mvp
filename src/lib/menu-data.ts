@@ -45,7 +45,10 @@ export const menuItems: MenuItem[] = [
   { id: "d-7", category: "postre", name: "Lemon pie", description: "Crema de limon y merengue", price: 3800, imageUrl: local("lemon-pie.jpg") },
   { id: "d-8", category: "postre", name: "Chocotorta", description: "Clasica argentina", price: 3600, imageUrl: local("chocotorta.jpg") },
   { id: "d-9", category: "postre", name: "Mousse", description: "Chocolate semi amargo", price: 3300, imageUrl: local("mousse.jpg") },
-  { id: "d-10", category: "postre", name: "Volcán de chocolate", description: "Centro fundido", price: 4500, imageUrl: local("volcan-chocolate.jpg") }
+  { id: "d-10", category: "postre", name: "Volcán de chocolate", description: "Centro fundido", price: 4500, imageUrl: local("volcan-chocolate.jpg") },
+
+  // TEMP — test product for MercadoPago real payment testing. Remove when done.
+  { id: "d-test-mp", category: "postre", name: "Prueba MP Real", description: "Test de pago — borrar después", price: 10, imageUrl: local("cheesecake.jpg") }
 ];
 
 export const categoryLabels = {
