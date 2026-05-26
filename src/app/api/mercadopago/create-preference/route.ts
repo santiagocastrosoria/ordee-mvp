@@ -161,11 +161,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  console.info(TAG, "MP preference OK sessionId=", sessionId, "preferenceId=", pref.preferenceId);
-  console.info(TAG, "[mp sdk init] preference ready", {
-    sessionId,
+  console.info(TAG, "[mp preference created]", {
     preferenceId: pref.preferenceId,
-    checkoutUrl: pref.checkoutUrl
+    sessionId,
+    total,
+    ts: new Date().toISOString()
   });
 
   return NextResponse.json({

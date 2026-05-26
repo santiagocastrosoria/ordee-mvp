@@ -72,7 +72,13 @@ export async function createCheckoutProPreference(params: {
       external_reference: params.sessionId,
       notification_url: params.notificationUrl,
       back_urls: params.backUrls,
-      auto_return: "approved"
+      auto_return: "approved",
+      // Exclude offline cash payment methods (Rapipago, Pago Fácil, etc.).
+      // Restaurant orders must confirm instantly — ticket/offline methods have
+      // delayed confirmation and break the realtime kitchen flow.
+      payment_methods: {
+        excluded_payment_types: [{ id: "ticket" }]
+      }
     })
   });
 

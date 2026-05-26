@@ -31,11 +31,11 @@ export async function POST(request: NextRequest) {
   const qsId = request.nextUrl.searchParams.get("id");
   const rawId = dataId != null ? String(dataId) : qsId ?? null;
 
-  console.info(TAG, "[mp webhook approved] received", {
-    type,
+  console.info(TAG, "[mp webhook received]", {
+    paymentId: rawId,
     action,
-    rawId,
-    qsId,
+    type,
+    ts: new Date().toISOString(),
     url: request.url
   });
 
@@ -75,9 +75,24 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await fulfillMercadoPagoByPaymentId(supabase, rawId);
-  console.info(TAG, "[webhook session update] resultado fulfill", result);
+
   if (result.orderId) {
-    console.info(TAG, "[session completed] orderId=", result.orderId);
+    console.info(TAG, "[mp webhook approved]", {
+      paymentId: rawId,
+      orderId: result.orderId,
+      ts: new Date().toISOString()
+    });
+  } else if (!result.ok) {
+    console.warn(TAG, "[mp webhook failed]", {
+      paymentId: rawId,
+      skipped: result.skipped,
+      ts: new Date().toISOString()
+    });
+  } else {
+    console.info(TAG, "[webhook session update]", {
+      paymentId: rawId,
+      skipped: result.skipped
+    });
   }
 
   return NextResponse.json(result);

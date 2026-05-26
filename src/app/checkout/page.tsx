@@ -124,6 +124,22 @@ function CheckoutContent() {
 
     let done = false; // shared flag to stop both poll and realtime once resolved
 
+    // ── Dev-only: warn if no approval arrives after 45 s ─────────────────
+    // Purely diagnostic — does NOT interrupt the flow or cancel any request.
+    let warnTimerId: number | null = null;
+    if (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ORDER_DEBUG === "1") {
+      warnTimerId = window.setTimeout(() => {
+        if (!done) {
+          console.warn(
+            "[payment pending too long]",
+            new Date().toISOString(),
+            "No webhook/callback after 45 s — possible MercadoPago Sandbox freeze or interrupted payment flow.",
+            { sessionId: mpSessionId, elapsed: "45s" }
+          );
+        }
+      }, 45_000);
+    }
+
     /** Transition to success state. Called by poll OR realtime — whichever fires first. */
     const handleApproved = (resolvedOrderId: string, via: string) => {
       if (done) return; // already resolved
@@ -223,6 +239,7 @@ function CheckoutContent() {
     return () => {
       done = true; // stop pending setTimeout
       attempts = maxAttempts;
+      if (warnTimerId !== null) window.clearTimeout(warnTimerId);
       if (supabase && channel) supabase.removeChannel(channel);
     };
   }, [mpSessionId, mpResult]); // intentionally omit router — no longer used here
@@ -230,7 +247,11 @@ function CheckoutContent() {
   // ── Log MP callback on return from MercadoPago ───────────────────────────
   useEffect(() => {
     if (!mpResult || !mpSessionId) return;
-    console.info("[mp callback]", { result: mpResult, sessionId: mpSessionId });
+    console.info("[mp callback detected]", {
+      result: mpResult,
+      sessionId: mpSessionId,
+      ts: new Date().toISOString()
+    });
   }, [mpResult, mpSessionId]);
 
   // ── Payment cancelled / rejected ─────────────────────────────────────────
@@ -313,10 +334,11 @@ function CheckoutContent() {
         return;
       }
 
-      console.info("[mp redirect]", {
+      console.info("[mp redirect start]", {
         sessionId: prefParsed.sessionId,
         preferenceId: prefParsed.preferenceId,
-        url: checkoutUrl
+        url: checkoutUrl,
+        ts: new Date().toISOString()
       });
 
       setOpenPaymentModal(false);
