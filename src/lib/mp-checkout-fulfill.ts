@@ -27,6 +27,23 @@ export async function fulfillMercadoPagoByPaymentId(
 
   console.info(TAG, "[mp webhook approved]", { paymentId: mpPaymentId, status: payment.status });
 
+  // ── Layer 1: pre-check for existing payment (fast path) ──────────────────
+  // Catches MP retries and duplicate webhook calls before touching orders.
+  // The UNIQUE INDEX on payments.provider_payment_id is the database backstop.
+  const { data: existingPayment } = await supabase
+    .from("payments")
+    .select("order_id")
+    .eq("provider_payment_id", String(mpPaymentId))
+    .maybeSingle();
+
+  if (existingPayment?.order_id) {
+    console.info(TAG, "[mp idempotent] payment already processed — returning existing order", {
+      mpPaymentId,
+      orderId: existingPayment.order_id
+    });
+    return { ok: true, orderId: existingPayment.order_id as string, skipped: "payment_already_exists" };
+  }
+
   const ref = payment.external_reference?.trim();
   if (!ref) {
     console.warn(TAG, "payment approved pero sin external_reference — paymentId=", mpPaymentId);

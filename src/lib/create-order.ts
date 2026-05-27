@@ -79,8 +79,35 @@ export async function createOrderInDatabase(
     .select("id")
     .single();
 
-  if (paymentError || !payment) {
+  if (paymentError) {
+    // ── Layer 2: handle race-condition duplicate (23505 unique violation) ───
+    // Two concurrent webhook calls both passed the pre-check, both created an
+    // order row, but only one can win the UNIQUE INDEX on provider_payment_id.
+    // The loser arrives here: clean up the orphan order we just inserted and
+    // return the winner's order so the caller stays idempotent.
+    if (paymentError.code === "23505" && body.mpPaymentId) {
+      console.warn(
+        "[create-order] 23505 on payment insert — race condition duplicate detected, cleaning orphan",
+        { orphanOrderId: order.id, mpPaymentId: body.mpPaymentId }
+      );
+      // Remove orphan order (cascades to order_items via FK).
+      await supabase.from("orders").delete().eq("id", order.id);
+      // Return the winner's order ID.
+      const { data: winner } = await supabase
+        .from("payments")
+        .select("order_id")
+        .eq("provider_payment_id", body.mpPaymentId)
+        .maybeSingle();
+      const winnerId = winner?.order_id as string | undefined;
+      if (winnerId) {
+        return { ok: true, orderId: winnerId, paymentId: "", total };
+      }
+    }
     return { ok: false, error: "No se pudo registrar pago", step: "payments", detail: paymentError };
+  }
+
+  if (!payment) {
+    return { ok: false, error: "No se pudo registrar pago", step: "payments", detail: null };
   }
 
   if (normalizedTable && paid) {
