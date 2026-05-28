@@ -44,6 +44,8 @@ function CheckoutContent() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutErrorDetail, setCheckoutErrorDetail] = useState<unknown>(null);
   const [testOrderBusy, setTestOrderBusy] = useState(false);
+  // Separate flag for MP back/cancel — shown as a subtle neutral hint, never a red alert.
+  const [mpCancelled, setMpCancelled] = useState(false);
 
   /**
    * mpWaiting  — polling for session orderId (spinner shown)
@@ -255,9 +257,16 @@ function CheckoutContent() {
   }, [mpResult, mpSessionId]);
 
   // ── Payment cancelled / rejected ─────────────────────────────────────────
+  // Set mpCancelled (subtle neutral UI) — NOT checkoutError (red alert).
+  // Developer detail is still logged to the console below.
   useEffect(() => {
     if (mpResult === "failure" && mpSessionId) {
-      setCheckoutError("El pago fue cancelado o rechazado. Podés intentar de nuevo.");
+      setMpCancelled(true);
+      console.info("[mp callback detected]", {
+        result: "failure/cancelled",
+        sessionId: mpSessionId,
+        ts: new Date().toISOString()
+      });
     }
   }, [mpResult, mpSessionId]);
 
@@ -268,6 +277,7 @@ function CheckoutContent() {
     setLoading(true);
     setCheckoutError(null);
     setCheckoutErrorDetail(null);
+    setMpCancelled(false); // clear any previous cancellation hint on retry
 
     const basePayload = {
       restaurantSlug: getDefaultRestaurantSlug(),
@@ -567,17 +577,21 @@ function CheckoutContent() {
       {checkoutError ? (
         <div className="rounded-xl border border-red-200 bg-red-50/90 p-4 text-sm shadow-brand-sm">
           <p className="font-semibold text-red-900">{checkoutError}</p>
-          {checkoutErrorDetail ? (
+          {/* Raw detail only in dev/debug mode — never shown to restaurant customers */}
+          {showOrderDebug && checkoutErrorDetail ? (
             <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-red-100 bg-white/80 p-2 font-mono text-xs text-red-900/90">
               {typeof checkoutErrorDetail === "string"
                 ? checkoutErrorDetail
                 : JSON.stringify(checkoutErrorDetail, null, 2)}
             </pre>
           ) : null}
-          <p className="mt-2 text-xs text-red-800/80">
-            Logs en consola del navegador (F12). En servidor: mirá la terminal donde corre{" "}
-            <code>npm run dev</code>.
-          </p>
+        </div>
+      ) : null}
+
+      {/* Subtle neutral hint when user returns from MP without paying */}
+      {mpCancelled && !mpWaiting ? (
+        <div className="rounded-lg border border-brand-border bg-brand-soft px-3.5 py-2.5 text-sm text-brand-muted">
+          Pago no completado. Podés elegir otro método o intentar de nuevo.
         </div>
       ) : null}
 
@@ -709,6 +723,10 @@ function CheckoutContent() {
             {checkoutError ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-900">
                 {checkoutError}
+              </div>
+            ) : mpCancelled ? (
+              <div className="rounded-lg border border-brand-border bg-brand-soft p-2 text-xs text-brand-muted">
+                Pago no completado. Podés intentar de nuevo.
               </div>
             ) : null}
             <div className="flex gap-2 pt-1">
