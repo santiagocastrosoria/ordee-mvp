@@ -8,7 +8,8 @@ export function HelpButton() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  if (pathname === "/") return null;
+  // On /menu the help button lives inline inside the sticky categories row.
+  if (pathname === "/" || pathname === "/menu") return null;
 
   const requestHelp = async () => {
     setLoading(true);
