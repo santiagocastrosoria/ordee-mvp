@@ -7,9 +7,13 @@ export const metadata: Metadata = {
   title: "ORDEE MVP",
   description: "Menu digital y cocina en tiempo real",
   icons: {
-    icon: "/favicon.ico?v=2",
-    shortcut: "/favicon.ico?v=2",
-    apple: "/apple-icon.png?v=2"
+    icon: [
+      { url: "/favicon.ico?v=4", sizes: "any" },
+      { url: "/icon.png?v=4", type: "image/png", sizes: "32x32" },
+      { url: "/icon.png?v=4", type: "image/png", sizes: "192x192" }
+    ],
+    shortcut: "/favicon.ico?v=4",
+    apple: "/apple-touch-icon.png?v=4"
   }
 };
 
