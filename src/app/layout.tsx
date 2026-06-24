@@ -5,7 +5,12 @@ import { TopNav } from "@/components/top-nav";
 
 export const metadata: Metadata = {
   title: "ORDEE MVP",
-  description: "Menu digital y cocina en tiempo real"
+  description: "Menu digital y cocina en tiempo real",
+  icons: {
+    icon: "/favicon.ico?v=2",
+    shortcut: "/favicon.ico?v=2",
+    apple: "/apple-icon.png?v=2"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
