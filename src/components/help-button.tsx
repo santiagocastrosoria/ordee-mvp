@@ -8,8 +8,10 @@ export function HelpButton() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // On /menu the help button lives inline inside the sticky categories row.
-  if (pathname === "/" || pathname === "/menu") return null;
+  // The help button lives inline inside the menu's sticky categories row, so
+  // hide the floating one on the login screen and on any menu route
+  // (flat /menu and scoped /r/<slug>/menu).
+  if (pathname === "/" || pathname.endsWith("/menu")) return null;
 
   const requestHelp = async () => {
     setLoading(true);

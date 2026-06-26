@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureRestaurantBySlug, getDefaultRestaurantSlug } from "@/lib/restaurant-demo";
+import { getDefaultRestaurantSlug, getRestaurantBySlug } from "@/lib/restaurant-demo";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { menuItems } from "@/lib/menu-data";
 import { MenuCategory, MenuItem } from "@/lib/types";
@@ -18,21 +18,28 @@ type MenuRow = {
 
 export async function GET(request: NextRequest) {
   const restaurantSlug = request.nextUrl.searchParams.get("restaurant") ?? getDefaultRestaurantSlug();
+  // Hardcoded demo fallback is allowed ONLY for the default demo slug.
+  // For any other (real) tenant we never serve demo data.
+  const isDefaultDemo = restaurantSlug === getDefaultRestaurantSlug();
+
   let supabase;
   try {
     supabase = createSupabaseAdminClient();
   } catch {
-    return NextResponse.json(menuItems);
+    return isDefaultDemo
+      ? NextResponse.json(menuItems)
+      : NextResponse.json({ error: "Restaurante no disponible" }, { status: 404 });
   }
 
-  const ensured = await ensureRestaurantBySlug(supabase, restaurantSlug);
-  if (!ensured.ok) {
-    console.error("[ORDEE api/menu] ensure restaurant:", ensured.message);
-    return NextResponse.json(menuItems);
-  }
-  const restaurant = { id: ensured.id };
-  if (ensured.created) {
-    console.info("[ORDEE api/menu] restaurant demo creado restaurant_id=", ensured.id);
+  // READ-ONLY resolution — never auto-creates a restaurant for a public request.
+  const restaurant = await getRestaurantBySlug(supabase, restaurantSlug);
+  if (!restaurant) {
+    if (isDefaultDemo) {
+      // Demo not seeded yet — keep backward-compatible demo menu.
+      return NextResponse.json(menuItems);
+    }
+    console.warn("[ORDEE api/menu] slug inexistente (sin auto-create):", restaurantSlug);
+    return NextResponse.json({ error: "Restaurante no encontrado" }, { status: 404 });
   }
 
   const { data, error } = await supabase
@@ -42,7 +49,9 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json(menuItems);
+    return isDefaultDemo
+      ? NextResponse.json(menuItems)
+      : NextResponse.json({ error: "No se pudo cargar el menú" }, { status: 500 });
   }
 
   const response: MenuItem[] = ((data ?? []) as unknown as MenuRow[]).map((row) => {
@@ -62,7 +71,9 @@ export async function GET(request: NextRequest) {
   });
 
   if (response.length === 0) {
-    return NextResponse.json(menuItems);
+    // Only the demo falls back to hardcoded items; a real tenant with an empty
+    // menu legitimately returns an empty list (no demo data leak).
+    return isDefaultDemo ? NextResponse.json(menuItems) : NextResponse.json([]);
   }
 
   return NextResponse.json(response);

@@ -24,6 +24,42 @@ export function displayNameForRestaurantSlug(slug: string): string {
     .join(" ");
 }
 
+/**
+ * Lookup READ-ONLY de un restaurante por slug. NUNCA inserta.
+ *
+ * Usar SIEMPRE para resolución pública (URLs de clientes /r/[slug], APIs públicas).
+ * Devuelve null si el slug no existe — el caller decide mostrar "no encontrado".
+ *
+ * NO confundir con ensureRestaurantBySlug(), que auto-crea filas y queda
+ * reservado solo para flujos internos/admin/dev bootstrap.
+ */
+export async function getRestaurantBySlug(
+  supabase: SupabaseClient,
+  slug: string
+): Promise<{ id: string; slug: string; name: string } | null> {
+  const clean = String(slug).trim();
+  if (!clean) return null;
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("id,slug,name")
+    .eq("slug", clean)
+    .maybeSingle();
+
+  if (error) {
+    console.error(LOG, "getRestaurantBySlug select falló slug=", clean, error.message);
+    return null;
+  }
+
+  if (!data?.id) return null;
+
+  return {
+    id: data.id,
+    slug: (data.slug as string) ?? clean,
+    name: (data.name as string) ?? displayNameForRestaurantSlug(clean)
+  };
+}
+
 /** Asegura fila en `restaurants` (insert si no existe). Mismo `restaurant_id` para MVP y Cocina con el mismo slug. */
 export async function ensureRestaurantBySlug(
   supabase: SupabaseClient,
