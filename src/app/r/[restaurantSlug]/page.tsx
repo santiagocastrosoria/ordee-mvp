@@ -3,5 +3,5 @@ import { displayNameForRestaurantSlug } from "@/lib/restaurant-demo";
 
 export default function RestaurantLandingPage({ params }: { params: { restaurantSlug: string } }) {
   const slug = decodeURIComponent(params.restaurantSlug).trim();
-  return <LoginScreen basePath={`/r/${slug}`} restaurantName={displayNameForRestaurantSlug(slug)} />;
+  return <LoginScreen basePath={`/r/${slug}`} restaurantSlug={slug} restaurantName={displayNameForRestaurantSlug(slug)} />;
 }

@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MenuCard } from "@/components/menu-card";
-import { RestaurantThemeShell } from "@/components/restaurant-theme-shell";
 import { addToCart, getCart } from "@/lib/cart-storage";
 import { formatArs } from "@/lib/format";
-import { buildDemoMenuResponse } from "@/lib/menu-api-response";
-import { getSession } from "@/lib/session";
+import { customerPaths } from "@/lib/restaurant-routes";
+import { getSessionForSlug, sessionLoginPath } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CartItem, MenuApiResponse, MenuCategoryMeta, MenuItem } from "@/lib/types";
 
@@ -47,8 +46,9 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
 
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  const loginPath = basePath || "/";
-  const cartPath = "/cart";
+  const loginPath = sessionLoginPath(restaurantSlug);
+  const paths = customerPaths(restaurantSlug);
+  const cartPath = paths.cart;
 
   const { restaurant, categories, items } = menu;
   const showProductImages = restaurant.showProductImages;
@@ -70,7 +70,7 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
   }, [visibleCategories]);
 
   useEffect(() => {
-    const session = getSession();
+    const session = getSessionForSlug(restaurantSlug);
     if (!session) {
       router.replace(loginPath);
       return;
@@ -80,7 +80,7 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
     setTableNumber(session.tableNumber);
     window.localStorage.setItem("ordee_table", session.tableNumber);
 
-    setCartEntries(getCart());
+    setCartEntries(getCart(restaurantSlug));
 
     const slug = encodeURIComponent(restaurantSlug);
 
@@ -140,7 +140,7 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
   const categoryLabel = (cat: MenuCategoryMeta) => cat.name;
 
   const handleAdd = (item: MenuItem) => {
-    setCartEntries(addToCart(item));
+    setCartEntries(addToCart(restaurantSlug, item));
   };
 
   const goToCategory = (code: string) => {
@@ -162,7 +162,7 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
   };
 
   return (
-    <RestaurantThemeShell theme={restaurant.theme}>
+    <>
       <div
         className={`space-y-2.5 sm:space-y-3 transition-[padding-bottom] duration-300 ${
           cartCount > 0 ? "pb-28 sm:pb-32" : "pb-8 sm:pb-10"
@@ -192,7 +192,7 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
                   onClick={() => goToCategory(category.code)}
                   className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ordee-tap sm:px-3.5 sm:py-1.5 sm:text-sm ${
                     activeCategory === category.code
-                      ? "bg-brand-ink text-brand-accentFg shadow-sm ring-1 ring-brand-ink/10"
+                      ? "bg-brand-accent text-brand-accentFg shadow-sm ring-1 ring-brand-accent/30"
                       : "border border-transparent bg-brand-soft text-brand-muted hover:bg-brand-border/50 hover:text-brand-ink"
                   }`}
                 >
@@ -262,13 +262,13 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
                 </p>
               </div>
 
-              <span className="shrink-0 rounded-full bg-brand-ink px-4 py-2 text-xs font-bold text-brand-accentFg shadow-[0_2px_12px_rgba(0,0,0,0.18)] sm:px-5 sm:text-sm">
+              <span className="shrink-0 rounded-full bg-brand-accent px-4 py-2 text-xs font-bold text-brand-accentFg shadow-[0_2px_12px_rgba(0,0,0,0.18)] sm:px-5 sm:text-sm">
                 Ver carrito →
               </span>
             </Link>
           </div>
         </div>
       </div>
-    </RestaurantThemeShell>
+    </>
   );
 }

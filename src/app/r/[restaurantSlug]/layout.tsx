@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import { RestaurantThemeProvider } from "@/components/restaurant-theme-provider";
 import { getDefaultRestaurantSlug, getRestaurantBySlug } from "@/lib/restaurant-demo";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { ThemeTokens } from "@/lib/theme";
 
 /**
  * Server-side guard for every /r/[restaurantSlug]/* page.
@@ -24,22 +26,27 @@ export default async function RestaurantScopeLayout({
   const isDefaultDemo = slug === getDefaultRestaurantSlug();
 
   let allowed = isDefaultDemo;
+  let theme: ThemeTokens | null = null;
 
-  if (!allowed) {
-    try {
-      const supabase = createSupabaseAdminClient();
-      const restaurant = await getRestaurantBySlug(supabase, slug);
-      allowed = Boolean(restaurant);
-    } catch (e) {
-      // Supabase env not available — only the demo slug is allowed offline.
-      console.error("[ORDEE /r layout] no se pudo validar slug=", slug, e instanceof Error ? e.message : e);
-      allowed = isDefaultDemo;
+  try {
+    const supabase = createSupabaseAdminClient();
+    const restaurant = await getRestaurantBySlug(supabase, slug);
+    if (restaurant) {
+      allowed = true;
+      theme = restaurant.theme;
     }
+  } catch (e) {
+    console.error("[ORDEE /r layout] no se pudo validar slug=", slug, e instanceof Error ? e.message : e);
+    allowed = isDefaultDemo;
   }
 
   if (!allowed) {
     notFound();
   }
 
-  return <>{children}</>;
+  return (
+    <RestaurantThemeProvider slug={slug} theme={theme}>
+      {children}
+    </RestaurantThemeProvider>
+  );
 }

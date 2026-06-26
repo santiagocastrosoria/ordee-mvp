@@ -9,11 +9,13 @@ const MESAS = Array.from({ length: 30 }, (_, i) => String(i + 1));
 interface LoginScreenProps {
   /** Route prefix: "" for flat routes, "/r/<slug>" for scoped routes. */
   basePath: string;
+  /** Restaurant slug for session scoping. */
+  restaurantSlug: string;
   /** Optional restaurant display name shown under the title (scoped routes). */
   restaurantName?: string;
 }
 
-export function LoginScreen({ basePath, restaurantName }: LoginScreenProps) {
+export function LoginScreen({ basePath, restaurantSlug, restaurantName }: LoginScreenProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [tableNumber, setTableNumber] = useState("");
@@ -23,10 +25,11 @@ export function LoginScreen({ basePath, restaurantName }: LoginScreenProps) {
   const menuPath = `${basePath}/menu`;
 
   useEffect(() => {
-    if (getSession()) {
+    const session = getSession();
+    if (session?.restaurantSlug === restaurantSlug) {
       router.replace(menuPath);
     }
-  }, [router, menuPath]);
+  }, [router, menuPath, restaurantSlug]);
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -45,6 +48,7 @@ export function LoginScreen({ basePath, restaurantName }: LoginScreenProps) {
       name: trimmed,
       tableNumber,
       role: "cliente",
+      restaurantSlug,
       createdAt: new Date().toISOString()
     });
     window.localStorage.setItem("ordee_table", tableNumber);

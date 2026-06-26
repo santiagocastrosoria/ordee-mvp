@@ -1,6 +1,6 @@
 import { LoginScreen } from "@/components/screens/login-screen";
+import { getDefaultRestaurantSlug } from "@/lib/restaurant-demo";
 
 export default function LoginPage() {
-  // Flat route = demo-ordee fallback. basePath "" keeps navigation on flat routes.
-  return <LoginScreen basePath="" />;
+  return <LoginScreen basePath="" restaurantSlug={getDefaultRestaurantSlug()} />;
 }

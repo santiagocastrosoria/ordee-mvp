@@ -137,15 +137,18 @@ export async function POST(request: NextRequest) {
     unit_price: Math.round(entry.item.price)
   }));
 
+  const checkoutBase =
+    slug === getDefaultRestaurantSlug() ? `${appUrl}/checkout` : `${appUrl}/r/${encodeURIComponent(slug)}/checkout`;
+
   // ── 7. Create MercadoPago preference ─────────────────────────────────────
   const pref = await createCheckoutProPreference({
     sessionId,
     items: mpItems,
     notificationUrl,
     backUrls: {
-      success: `${appUrl}/checkout?mp=success&sessionId=${sessionId}`,
-      failure: `${appUrl}/checkout?mp=failure&sessionId=${sessionId}`,
-      pending: `${appUrl}/checkout?mp=pending&sessionId=${sessionId}`
+      success: `${checkoutBase}?mp=success&sessionId=${sessionId}`,
+      failure: `${checkoutBase}?mp=failure&sessionId=${sessionId}`,
+      pending: `${checkoutBase}?mp=pending&sessionId=${sessionId}`
     }
   });
 

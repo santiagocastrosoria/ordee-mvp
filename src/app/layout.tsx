@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CustomerMain } from "@/components/customer-main";
 import { HelpButton } from "@/components/help-button";
 import { TopNav } from "@/components/top-nav";
 
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <TopNav />
         <HelpButton />
-        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+        <CustomerMain>{children}</CustomerMain>
       </body>
     </html>
   );
