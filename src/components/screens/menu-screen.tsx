@@ -4,14 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MenuCard } from "@/components/menu-card";
+import { RestaurantThemeShell } from "@/components/restaurant-theme-shell";
 import { addToCart, getCart } from "@/lib/cart-storage";
 import { formatArs } from "@/lib/format";
-import { categoryLabels } from "@/lib/menu-data";
+import { buildDemoMenuResponse } from "@/lib/menu-api-response";
 import { getSession } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { CartItem, MenuCategory, MenuItem } from "@/lib/types";
-
-const categories: MenuCategory[] = ["entrada", "principal", "bebida", "postre"];
+import { CartItem, MenuApiResponse, MenuCategoryMeta, MenuItem } from "@/lib/types";
 
 /**
  * Pixel offset from the top of the viewport at which a category section
@@ -20,48 +19,56 @@ const categories: MenuCategory[] = ["entrada", "principal", "bebida", "postre"];
  */
 const CATEGORY_SCROLL_ANCHOR_PX = 100;
 
+const EMPTY_MENU: MenuApiResponse = {
+  restaurant: { slug: "", name: "", showProductImages: true, theme: null },
+  categories: [],
+  items: []
+};
+
 interface MenuScreenProps {
   /** Active restaurant slug used for the /api/menu fetch. */
   restaurantSlug: string;
   /** Route prefix: "" for flat routes, "/r/<slug>" for scoped routes. */
   basePath: string;
-  /** Initial items before the fetch resolves. Demo route passes hardcoded menu; scoped passes []. */
-  initialItems: MenuItem[];
+  /** Initial menu payload before the fetch resolves. */
+  initialMenu?: MenuApiResponse;
 }
 
-export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScreenProps) {
+export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreenProps) {
   const router = useRouter();
 
-  // Cart — full entry list so we can compute both count AND total.
   const [cartEntries, setCartEntries] = useState<CartItem[]>([]);
-
-  const [items, setItems] = useState<MenuItem[]>(initialItems);
-  const [activeCategory, setActiveCategory] = useState<MenuCategory>("entrada");
+  const [menu, setMenu] = useState<MenuApiResponse>(initialMenu ?? EMPTY_MENU);
+  const [activeCategory, setActiveCategory] = useState("");
   const [name, setName] = useState("Cliente");
   const [tableNumber, setTableNumber] = useState("1");
-
-  // "Necesito ayuda" state — lives here since the button moved into the categories row.
   const [helpLoading, setHelpLoading] = useState(false);
   const [helpMessage, setHelpMessage] = useState("");
 
-  const sectionRefs = useRef<Record<MenuCategory, HTMLElement | null>>({
-    entrada: null,
-    principal: null,
-    bebida: null,
-    postre: null
-  });
+  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  // Where to send a customer that has no session yet.
   const loginPath = basePath || "/";
-  // Phase 1: cart/checkout remain on the flat routes (slug-aware cart is Phase 2).
-  // Keeping this flat avoids 404s on scoped routes that don't exist yet.
   const cartPath = "/cart";
 
-  // Derived cart values.
+  const { restaurant, categories, items } = menu;
+  const showProductImages = restaurant.showProductImages;
+
+  const visibleCategories = useMemo(() => {
+    const codesWithItems = new Set(items.map((item) => item.category));
+    return categories.filter((cat) => codesWithItems.has(cat.code));
+  }, [categories, items]);
+
   const cartCount = cartEntries.reduce((acc, e) => acc + e.quantity, 0);
   const cartTotalArs = cartEntries.reduce((acc, e) => acc + e.quantity * e.item.price, 0);
 
-  // ── Bootstrap: session + initial cart + menu data + realtime ─────────────
+  useEffect(() => {
+    if (visibleCategories.length === 0) return;
+    setActiveCategory((prev) => {
+      if (prev && visibleCategories.some((c) => c.code === prev)) return prev;
+      return visibleCategories[0].code;
+    });
+  }, [visibleCategories]);
+
   useEffect(() => {
     const session = getSession();
     if (!session) {
@@ -80,8 +87,8 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
     const fetchData = async () => {
       const menuResponse = await fetch(`/api/menu?restaurant=${slug}`, { cache: "no-store" });
       if (menuResponse.ok) {
-        const menuData = (await menuResponse.json()) as MenuItem[];
-        setItems(menuData);
+        const menuData = (await menuResponse.json()) as MenuApiResponse;
+        setMenu(menuData);
       }
     };
 
@@ -100,16 +107,15 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
     };
   }, [router, restaurantSlug, loginPath]);
 
-  // ── Scroll spy: keeps active category tab in sync ─────────────────────────
   useEffect(() => {
-    if (items.length === 0) return;
+    if (items.length === 0 || visibleCategories.length === 0) return;
 
     const syncActiveFromScroll = () => {
-      let next: MenuCategory = "entrada";
-      for (const cat of categories) {
-        const el = sectionRefs.current[cat];
+      let next = visibleCategories[0].code;
+      for (const cat of visibleCategories) {
+        const el = sectionRefs.current.get(cat.code);
         if (!el) continue;
-        if (el.getBoundingClientRect().top <= CATEGORY_SCROLL_ANCHOR_PX) next = cat;
+        if (el.getBoundingClientRect().top <= CATEGORY_SCROLL_ANCHOR_PX) next = cat.code;
       }
       setActiveCategory((prev) => (prev === next ? prev : next));
     };
@@ -121,27 +127,25 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
       window.removeEventListener("scroll", syncActiveFromScroll);
       window.removeEventListener("resize", syncActiveFromScroll);
     };
-  }, [items]);
+  }, [items, visibleCategories]);
 
-  const grouped = useMemo(
-    () =>
-      categories.reduce(
-        (acc, cat) => {
-          acc[cat] = items.filter((item) => item.category === cat);
-          return acc;
-        },
-        { entrada: [] as MenuItem[], principal: [] as MenuItem[], bebida: [] as MenuItem[], postre: [] as MenuItem[] }
-      ),
-    [items]
-  );
+  const grouped = useMemo(() => {
+    const acc = new Map<string, MenuItem[]>();
+    for (const cat of visibleCategories) {
+      acc.set(cat.code, items.filter((item) => item.category === cat.code));
+    }
+    return acc;
+  }, [visibleCategories, items]);
+
+  const categoryLabel = (cat: MenuCategoryMeta) => cat.name;
 
   const handleAdd = (item: MenuItem) => {
     setCartEntries(addToCart(item));
   };
 
-  const goToCategory = (category: MenuCategory) => {
-    setActiveCategory(category);
-    sectionRefs.current[category]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const goToCategory = (code: string) => {
+    setActiveCategory(code);
+    sectionRefs.current.get(code)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const requestHelp = async () => {
@@ -158,17 +162,17 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
   };
 
   return (
-    <>
-      {/* ── Page content ───────────────────────────────────────────────────── */}
+    <RestaurantThemeShell theme={restaurant.theme}>
       <div
         className={`space-y-2.5 sm:space-y-3 transition-[padding-bottom] duration-300 ${
           cartCount > 0 ? "pb-28 sm:pb-32" : "pb-8 sm:pb-10"
         }`}
       >
-        {/* Welcome header + table number */}
         <header className="flex items-baseline justify-between gap-3">
           <div className="min-w-0 space-y-0.5">
-            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted sm:text-xs">Restaurante</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted sm:text-xs">
+              {restaurant.name || "Restaurante"}
+            </p>
             <h1 className="text-xl font-semibold tracking-tight text-brand-ink sm:text-2xl md:text-3xl">
               Bienvenido {name}
             </h1>
@@ -178,37 +182,25 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
           </p>
         </header>
 
-        {/* ── Sticky categories bar + help button ──────────────────────────── */}
-        {/*
-         * top-[45px]: exact TopNav height at mobile
-         *   py-2 (8+8) + nav-links py-1.5/text-xs (6+16+6=28) + border-b (1) = 45px
-         * sm:top-[53px]: exact TopNav height at sm+
-         *   sm:py-2.5 (10+10) + sm:text-sm/py-1.5 (6+20+6=32) + border-b (1) = 53px
-         *
-         * bg-brand-bg (fully opaque) so page content never bleeds through,
-         * eliminating any transparency-related visual gap.
-         */}
         <div className="sticky top-[45px] z-20 -mx-4 border-b border-brand-border bg-brand-bg px-2 py-1 sm:top-[53px] sm:px-3 sm:py-1.5">
           <div className="flex items-center gap-2">
-            {/* Scrollable category tabs */}
             <div className="flex flex-1 gap-1 overflow-x-auto py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-1.5">
-              {categories.map((category) => (
+              {visibleCategories.map((category) => (
                 <button
-                  key={category}
+                  key={category.code}
                   type="button"
-                  onClick={() => goToCategory(category)}
+                  onClick={() => goToCategory(category.code)}
                   className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ordee-tap sm:px-3.5 sm:py-1.5 sm:text-sm ${
-                    activeCategory === category
+                    activeCategory === category.code
                       ? "bg-brand-ink text-brand-accentFg shadow-sm ring-1 ring-brand-ink/10"
                       : "border border-transparent bg-brand-soft text-brand-muted hover:bg-brand-border/50 hover:text-brand-ink"
                   }`}
                 >
-                  {categoryLabels[category]}
+                  {categoryLabel(category)}
                 </button>
               ))}
             </div>
 
-            {/* Help button — shrink-0 so it never scrolls with categories */}
             <div className="relative shrink-0 py-0.5">
               <button
                 type="button"
@@ -222,38 +214,28 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
           </div>
         </div>
 
-        {/* ── Product sections ─────────────────────────────────────────────── */}
-        {categories.map((category) => (
+        {visibleCategories.map((category) => (
           <section
-            key={category}
-            data-category={category}
+            key={category.code}
+            data-category={category.code}
             ref={(el) => {
-              sectionRefs.current[category] = el;
+              if (el) sectionRefs.current.set(category.code, el);
+              else sectionRefs.current.delete(category.code);
             }}
             className="scroll-mt-24 space-y-1.5 sm:scroll-mt-28 sm:space-y-2"
           >
             <h2 className="text-sm font-semibold tracking-tight text-brand-ink sm:text-base">
-              {categoryLabels[category]}
+              {categoryLabel(category)}
             </h2>
             <div className="grid grid-cols-2 gap-1.5 sm:gap-2 md:grid-cols-3 lg:grid-cols-4">
-              {grouped[category].map((item) => (
-                <MenuCard key={item.id} item={item} onAdd={handleAdd} />
+              {(grouped.get(category.code) ?? []).map((item) => (
+                <MenuCard key={item.id} item={item} showImages={showProductImages} onAdd={handleAdd} />
               ))}
             </div>
           </section>
         ))}
       </div>
 
-      {/* ── Sticky bottom cart bar ───────────────────────────────────────────
-       *
-       * Appears with a smooth slide-up + fade when the first item is added.
-       * Disappears with a faster slide-down + fade when the cart is emptied.
-       *
-       * Safe-area: paddingBottom uses CSS max() to respect the iPhone home
-       * indicator (env(safe-area-inset-bottom)) with a 12px minimum floor.
-       *
-       * pointer-events-none when hidden so taps pass through to the page.
-       */}
       <div
         aria-hidden={cartCount === 0}
         className={`fixed bottom-0 left-0 right-0 z-40 transition-[transform,opacity] ${
@@ -262,9 +244,8 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
             : "pointer-events-none translate-y-full opacity-0 duration-200 ease-in"
         }`}
       >
-        {/* Solid white background — fully opaque, no blur, no transparency */}
         <div
-          className="border-t border-brand-border bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.07)]"
+          className="border-t border-brand-border bg-brand-card shadow-[0_-4px_24px_rgba(0,0,0,0.07)]"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
         >
           <div className="mx-auto max-w-6xl px-4 py-3">
@@ -272,7 +253,6 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
               href={cartPath}
               className="flex items-center justify-between gap-4 ordee-tap-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ink focus-visible:ring-offset-2"
             >
-              {/* Left: price + item count */}
               <div className="min-w-0">
                 <p className="text-sm font-bold tabular-nums text-brand-ink sm:text-base">
                   {formatArs(cartTotalArs)}
@@ -282,14 +262,13 @@ export function MenuScreen({ restaurantSlug, basePath, initialItems }: MenuScree
                 </p>
               </div>
 
-              {/* Right: CTA button pill */}
-              <span className="shrink-0 rounded-full bg-brand-ink px-4 py-2 text-xs font-bold text-white shadow-[0_2px_12px_rgba(0,0,0,0.18)] sm:px-5 sm:text-sm">
+              <span className="shrink-0 rounded-full bg-brand-ink px-4 py-2 text-xs font-bold text-brand-accentFg shadow-[0_2px_12px_rgba(0,0,0,0.18)] sm:px-5 sm:text-sm">
                 Ver carrito →
               </span>
             </Link>
           </div>
         </div>
       </div>
-    </>
+    </RestaurantThemeShell>
   );
 }

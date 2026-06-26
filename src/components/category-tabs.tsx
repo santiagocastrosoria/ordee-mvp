@@ -1,31 +1,30 @@
 "use client";
 
-import { MenuCategory } from "@/lib/types";
-import { categoryLabels } from "@/lib/menu-data";
+import type { MenuCategoryMeta } from "@/lib/types";
 
 interface CategoryTabsProps {
-  value: MenuCategory;
-  onChange: (category: MenuCategory) => void;
+  categories: MenuCategoryMeta[];
+  value: string;
+  onChange: (code: string) => void;
 }
 
-const categories: MenuCategory[] = ["entrada", "principal", "bebida", "postre"];
-
-export function CategoryTabs({ value, onChange }: CategoryTabsProps) {
+/** Legacy sticky tabs — MenuScreen inlines dynamic tabs; kept for reuse. */
+export function CategoryTabs({ categories, value, onChange }: CategoryTabsProps) {
   return (
     <div className="flex flex-wrap gap-2">
       {categories.map((category) => {
-        const isActive = value === category;
+        const isActive = value === category.code;
 
         return (
           <button
-            key={category}
+            key={category.code}
             type="button"
-            onClick={() => onChange(category)}
+            onClick={() => onChange(category.code)}
             className={`rounded-full px-4 py-2 text-sm ${
               isActive ? "bg-brand-gold text-black" : "bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
             }`}
           >
-            {categoryLabels[category]}
+            {category.name}
           </button>
         );
       })}

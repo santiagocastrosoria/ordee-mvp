@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { parseThemeTokens, type ThemeTokens } from "@/lib/theme";
 
 const LOG = "[ORDEE restaurant-demo]";
 
@@ -36,13 +37,19 @@ export function displayNameForRestaurantSlug(slug: string): string {
 export async function getRestaurantBySlug(
   supabase: SupabaseClient,
   slug: string
-): Promise<{ id: string; slug: string; name: string } | null> {
+): Promise<{
+  id: string;
+  slug: string;
+  name: string;
+  showProductImages: boolean;
+  theme: ThemeTokens | null;
+} | null> {
   const clean = String(slug).trim();
   if (!clean) return null;
 
   const { data, error } = await supabase
     .from("restaurants")
-    .select("id,slug,name")
+    .select("id,slug,name,show_product_images,theme")
     .eq("slug", clean)
     .maybeSingle();
 
@@ -56,7 +63,9 @@ export async function getRestaurantBySlug(
   return {
     id: data.id,
     slug: (data.slug as string) ?? clean,
-    name: (data.name as string) ?? displayNameForRestaurantSlug(clean)
+    name: (data.name as string) ?? displayNameForRestaurantSlug(clean),
+    showProductImages: data.show_product_images !== false,
+    theme: parseThemeTokens(data.theme)
   };
 }
 

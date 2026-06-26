@@ -1,16 +1,41 @@
-export type MenuCategory = "entrada" | "principal" | "bebida" | "postre";
+import type { ThemeTokens } from "@/lib/theme";
+
+/** Category code slug (was fixed union; now dynamic per restaurant). */
+export type MenuCategory = string;
+
+export interface MenuCategoryMeta {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+}
+
+export interface RestaurantMenuConfig {
+  slug: string;
+  name: string;
+  showProductImages: boolean;
+  theme: ThemeTokens | null;
+}
 
 export interface MenuItem {
   id: string;
+  /** Stable category slug for grouping and cart compat. */
   category: MenuCategory;
+  categoryId?: string;
   name: string;
   description: string;
   price: number;
-  imageUrl: string;
+  imageUrl: string | null;
   emoji?: string;
   popular?: boolean;
   /** false = agotado (is_active en DB); por defecto disponible */
   available?: boolean;
+}
+
+export interface MenuApiResponse {
+  restaurant: RestaurantMenuConfig;
+  categories: MenuCategoryMeta[];
+  items: MenuItem[];
 }
 
 export interface CartItem {

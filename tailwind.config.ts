@@ -6,15 +6,15 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          bg: "#fafafa",
-          card: "#ffffff",
-          soft: "#f4f4f5",
-          border: "#e4e4e7",
-          muted: "#71717a",
-          ink: "#0a0a0a",
+          bg: "rgb(var(--ordee-bg) / <alpha-value>)",
+          card: "rgb(var(--ordee-card) / <alpha-value>)",
+          soft: "rgb(var(--ordee-soft) / <alpha-value>)",
+          border: "rgb(var(--ordee-border) / <alpha-value>)",
+          muted: "rgb(var(--ordee-muted) / <alpha-value>)",
+          ink: "rgb(var(--ordee-ink) / <alpha-value>)",
           /** CTAs y acento principal (menú / nav nuevos) */
-          accent: "#0a0a0a",
-          accentFg: "#fafafa",
+          accent: "rgb(var(--ordee-accent) / <alpha-value>)",
+          accentFg: "rgb(var(--ordee-accent-fg) / <alpha-value>)",
           /** Legacy: otras pantallas siguen usando `brand-gold` hasta migrarlas */
           gold: "#d7ae66"
         }

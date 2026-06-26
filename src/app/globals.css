@@ -4,12 +4,20 @@
 
 :root {
   color-scheme: light;
+  --ordee-bg: 250 250 250;
+  --ordee-card: 255 255 255;
+  --ordee-soft: 244 244 245;
+  --ordee-border: 228 228 231;
+  --ordee-muted: 113 113 122;
+  --ordee-ink: 10 10 10;
+  --ordee-accent: 10 10 10;
+  --ordee-accent-fg: 250 250 250;
 }
 
 body {
   margin: 0;
-  background: #fafafa;
-  color: #0a0a0a;
+  background: rgb(var(--ordee-bg));
+  color: rgb(var(--ordee-ink));
   font-family:
     ui-sans-serif,
     system-ui,

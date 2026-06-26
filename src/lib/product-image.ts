@@ -11,23 +11,26 @@ export function productNameSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-const FALLBACK = "/products/pizza.jpg";
-
 /**
- * URL final para la card: respeta `imageUrl` absoluto o bajo `/`;
- * si viene vacío o relativo raro, intenta `/products/{slug}.jpg` desde el nombre.
+ * Resolves the image URL for a menu card.
+ * When showImages is false, never returns a URL (no placeholders or guessing).
+ * When showImages is true and imageUrl is set, returns absolute or site-relative path.
  */
-export function productImageSrc(item: MenuItem): string {
+export function resolveProductImage(item: MenuItem, showImages: boolean): string | null {
+  if (!showImages) return null;
+
   const raw = (item.imageUrl ?? "").trim();
-  if (!raw) {
-    const slug = productNameSlug(item.name);
-    return slug ? `/products/${slug}.jpg` : FALLBACK;
-  }
+  if (!raw) return null;
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
   if (raw.startsWith("/")) return raw;
-  return `/products/${productNameSlug(item.name)}.jpg`;
+  return `/products/${raw}`;
+}
+
+/** @deprecated Use resolveProductImage — kept for any legacy callers. */
+export function productImageSrc(item: MenuItem): string | null {
+  return resolveProductImage(item, true);
 }
 
 export function productImageFallback(): string {
-  return FALLBACK;
+  return "/products/pizza.jpg";
 }
