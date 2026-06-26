@@ -154,7 +154,7 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
     const res = await fetch("/api/soporte", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tableNumber: table })
+      body: JSON.stringify({ tableNumber: table, restaurantSlug })
     });
     setHelpLoading(false);
     setHelpMessage(res.ok ? "Aviso enviado" : "Error al enviar");
