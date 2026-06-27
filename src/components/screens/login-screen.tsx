@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { getSession, setSession } from "@/lib/session";
+import { getSessionForSlug, setSession } from "@/lib/session";
 
 const MESAS = Array.from({ length: 30 }, (_, i) => String(i + 1));
 
@@ -25,8 +25,8 @@ export function LoginScreen({ basePath, restaurantSlug, restaurantName }: LoginS
   const menuPath = `${basePath}/menu`;
 
   useEffect(() => {
-    const session = getSession();
-    if (session?.restaurantSlug === restaurantSlug) {
+    const session = getSessionForSlug(restaurantSlug);
+    if (session) {
       router.replace(menuPath);
     }
   }, [router, menuPath, restaurantSlug]);
@@ -51,7 +51,6 @@ export function LoginScreen({ basePath, restaurantSlug, restaurantName }: LoginS
       restaurantSlug,
       createdAt: new Date().toISOString()
     });
-    window.localStorage.setItem("ordee_table", tableNumber);
     router.replace(menuPath);
   };
 

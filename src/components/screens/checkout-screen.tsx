@@ -70,7 +70,7 @@ function CheckoutContent({ restaurantSlug, basePath }: { restaurantSlug: string;
       return;
     }
     setCustomerName(session.name);
-    setTableNumber(session.tableNumber ?? window.localStorage.getItem("ordee_table") ?? "1");
+    setTableNumber(session.tableNumber);
     setItems(getCart(restaurantSlug));
   }, [router, restaurantSlug]);
 

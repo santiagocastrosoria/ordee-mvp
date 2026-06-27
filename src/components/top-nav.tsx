@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { clearSession, getSession } from "@/lib/session";
+import { clearSessionForSlug, getSessionForSlug } from "@/lib/session";
 import {
   customerPaths,
   isCustomerLoginPath,
@@ -31,18 +31,14 @@ export function TopNav() {
   ];
 
   useEffect(() => {
-    const session = getSession();
-    if (session?.restaurantSlug === restaurantSlug) {
-      setName(session.name);
-    } else {
-      setName(null);
-    }
+    const session = getSessionForSlug(restaurantSlug);
+    setName(session?.name ?? null);
   }, [pathname, restaurantSlug]);
 
   if (isCustomerLoginPath(pathname)) return null;
 
   const signOut = () => {
-    clearSession();
+    clearSessionForSlug(restaurantSlug);
     router.replace(paths.login);
   };
 

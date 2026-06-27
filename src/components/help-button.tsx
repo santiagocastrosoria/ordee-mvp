@@ -1,12 +1,21 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { getDefaultRestaurantSlug } from "@/lib/restaurant-demo";
+import { requestCustomerHelp } from "@/lib/request-help";
+import { parseRestaurantSlugFromPath } from "@/lib/restaurant-routes";
+import { getSessionForSlug } from "@/lib/session";
 
 export function HelpButton() {
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+
+  const restaurantSlug = useMemo(
+    () => parseRestaurantSlugFromPath(pathname) ?? getDefaultRestaurantSlug(),
+    [pathname]
+  );
 
   // The help button lives inline inside the menu's sticky categories row, so
   // hide the floating one on the login screen and on any menu route
@@ -15,23 +24,23 @@ export function HelpButton() {
 
   const requestHelp = async () => {
     setLoading(true);
-    const table = window.localStorage.getItem("ordee_table") ?? "sin_mesa";
-    console.info("[ORDEE soporte cliente] POST /api/soporte mesa=", table);
+    const session = getSessionForSlug(restaurantSlug);
+    console.info(
+      "[ORDEE soporte cliente] POST /api/soporte slug=",
+      restaurantSlug,
+      "mesa=",
+      session?.tableNumber ?? "(sin sesión)"
+    );
 
-    const response = await fetch("/api/soporte", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tableNumber: table })
-    });
-
-    const text = await response.text();
-    console.info("[ORDEE soporte cliente] respuesta status=", response.status, text.slice(0, 400));
+    const { ok, status } = await requestCustomerHelp(restaurantSlug);
 
     setLoading(false);
-    if (!response.ok) {
-      console.error("[ORDEE soporte cliente] FALLA:", text);
+    if (!ok) {
+      console.error("[ORDEE soporte cliente] FALLA status=", status);
     }
-    setMessage(response.ok ? "Aviso enviado" : `No se pudo enviar (${response.status})`);
+    setMessage(
+      ok ? "Aviso enviado" : status === 401 ? "Inicia sesión primero" : `No se pudo enviar (${status})`
+    );
     window.setTimeout(() => setMessage(""), 2500);
   };
 

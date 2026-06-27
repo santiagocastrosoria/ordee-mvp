@@ -7,6 +7,7 @@ import { MenuCard } from "@/components/menu-card";
 import { addToCart, getCart } from "@/lib/cart-storage";
 import { formatArs } from "@/lib/format";
 import { customerPaths } from "@/lib/restaurant-routes";
+import { requestCustomerHelp } from "@/lib/request-help";
 import { getSessionForSlug, sessionLoginPath } from "@/lib/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CartItem, MenuApiResponse, MenuCategoryMeta, MenuItem } from "@/lib/types";
@@ -78,7 +79,6 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
 
     setName(session.name);
     setTableNumber(session.tableNumber);
-    window.localStorage.setItem("ordee_table", session.tableNumber);
 
     setCartEntries(getCart(restaurantSlug));
 
@@ -150,14 +150,9 @@ export function MenuScreen({ restaurantSlug, basePath, initialMenu }: MenuScreen
 
   const requestHelp = async () => {
     setHelpLoading(true);
-    const table = window.localStorage.getItem("ordee_table") ?? "sin_mesa";
-    const res = await fetch("/api/soporte", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tableNumber: table, restaurantSlug })
-    });
+    const { ok } = await requestCustomerHelp(restaurantSlug);
     setHelpLoading(false);
-    setHelpMessage(res.ok ? "Aviso enviado" : "Error al enviar");
+    setHelpMessage(ok ? "Aviso enviado" : "Error al enviar");
     window.setTimeout(() => setHelpMessage(""), 2500);
   };
 
